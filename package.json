@@ -1,0 +1,49 @@
+{
+  "name": "openai-agents-js",
+  "version": "0.1.2",
+  "description": "An unofficial Node.js library for building AI agents and multi-agent workflows with OpenAI",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "openai",
+    "ai",
+    "agents",
+    "llm",
+    "typescript",
+    "nodejs"
+  ],
+  "author": "Yusuf Eren",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yusuferen/openaiagents-node.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yusuferen/openaiagents-node/issues"
+  },
+  "homepage": "https://github.com/yusuferen/openaiagents-node#readme",
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "openai": "^4.94.0",
+    "uuid": "^11.1.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/dotenv": "^6.1.1",
+    "@types/jest": "^29.5.12",
+    "@types/node": "^22.13.17",
+    "@types/uuid": "^10.0.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.2",
+    "typescript": "^5.3.3"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ]
+}

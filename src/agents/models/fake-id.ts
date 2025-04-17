@@ -1,0 +1,1 @@
+export const FAKE_RESPONSES_ID = 'fake_responses_id'; 
