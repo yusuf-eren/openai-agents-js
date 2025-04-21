@@ -10,3 +10,4 @@ export * from './handoffs';
 export * from './items';
 export * from './models';
 export * from './run-context';
+export * from './_openai-shared';

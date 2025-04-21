@@ -517,9 +517,6 @@ export class OpenAIChatCompletionsModel implements Model {
     }
 
     // --- Add Logging ---
-    console.log('--- Sending Messages to OpenAI ---');
-    console.log(JSON.stringify(convertedMessages, null, 2));
-    console.log('--- End Messages ---');
     // --- End Logging ---
 
     const store = modelSettings.store ?? true;
@@ -535,7 +532,7 @@ export class OpenAIChatCompletionsModel implements Model {
       ),
       presence_penalty: this._nonNullOrNotGiven(modelSettings.presence_penalty),
       max_tokens: this._nonNullOrNotGiven(modelSettings.max_tokens),
-      tool_choice: toolChoice,
+      tool_choice: tools.length > 0 ? toolChoice : undefined,
       response_format: responseFormat,
       parallel_tool_calls: parallelToolCalls,
       stream,
@@ -769,15 +766,11 @@ class _Converter {
 
   static itemsToMessages(items: string | Iterable<TResponseInputItem>): any[] {
     // --- Add Logging ---
-    console.log('--- Input to itemsToMessages ---');
     // Convert Iterable to array for reliable logging
     const itemsArray = typeof items === 'string' ? [items] : Array.from(items);
-    console.log(JSON.stringify(itemsArray, null, 2));
-    console.log('--- End Input ---');
     // --- End Logging ---
 
     if (typeof items === 'string') {
-      console.log('------------OEEE-------------', items);
       return [
         {
           role: 'user',
@@ -821,7 +814,6 @@ class _Converter {
         if (role === 'user' && content !== undefined && content !== null) {
           flushAssistantMessage();
 
-          console.log('------------OEEE-------------', content);
           result.push({
             role: 'user',
             content: this.extractAllContent(content) || '',
@@ -864,7 +856,6 @@ class _Converter {
         flushAssistantMessage();
 
         if (role === 'user') {
-          console.log('------------OEEE-------------', content);
           result.push({
             role: 'user',
             content: this.extractAllContent(content) || '',
