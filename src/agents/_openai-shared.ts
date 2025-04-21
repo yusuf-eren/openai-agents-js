@@ -1,9 +1,10 @@
 import 'dotenv/config';
 import { OpenAI } from 'openai';
 
-let _defaultOpenaiKey: string | null = process.env.OPENAI_API_KEY || null;
-let _defaultOpenaiClient: OpenAI | null = null;
-let _useResponsesByDefault: boolean = true;
+export let _defaultOpenaiKey: string | null =
+  process.env.OPENAI_API_KEY || null;
+export let _defaultOpenaiClient: OpenAI | null = null;
+export let _useResponsesByDefault: boolean = true;
 
 /**
  * Set the default OpenAI API key.
@@ -51,4 +52,22 @@ export function setUseResponsesByDefault(useResponses: boolean): void {
  */
 export function getUseResponsesByDefault(): boolean {
   return _useResponsesByDefault;
-} 
+}
+
+export function setDefaultOpenaiApi(
+  api: 'chat_completions' | 'responses'
+): void {
+  if (api === 'chat_completions') {
+    setUseResponsesByDefault(false);
+  } else if (api === 'responses') {
+    setUseResponsesByDefault(true);
+  }
+}
+
+export function getDefaultOpenaiApi(): 'chat_completions' | 'responses' {
+  if (_useResponsesByDefault) {
+    return 'responses';
+  } else {
+    return 'chat_completions';
+  }
+}

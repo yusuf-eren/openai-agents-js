@@ -3,6 +3,7 @@ import { Model, ModelProvider } from './interface';
 import { OpenAIChatCompletionsModel } from './openai-chatcompletions';
 import { OpenAIResponsesModel } from './openai-responses';
 import {
+  _useResponsesByDefault,
   getDefaultOpenaiClient,
   getDefaultOpenaiKey,
   getUseResponsesByDefault,
@@ -20,7 +21,7 @@ export class OpenAIProvider implements ModelProvider {
   private _storedBaseUrl: string | null = null;
   private _storedOrganization: string | null = null;
   private _storedProject: string | null = null;
-  private _useResponses: boolean = true;
+  private _useResponses: boolean = _useResponsesByDefault;
 
   constructor({
     apiKey,
