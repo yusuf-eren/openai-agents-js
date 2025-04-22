@@ -71,7 +71,8 @@ export abstract class Model {
     tools: Tool[],
     outputSchema: AgentOutputSchema | null,
     handoffs: Handoff<any>[],
-    tracing: ModelTracing
+    tracing: ModelTracing,
+    previousResponseId?: string
   ): Promise<ModelResponse>;
 
   /**
@@ -93,7 +94,8 @@ export abstract class Model {
     tools: Tool[],
     outputSchema: AgentOutputSchema | null,
     handoffs: Handoff<any>[],
-    tracing: ModelTracing
+    tracing: ModelTracing,
+    previousResponseId?: string
   ): AsyncIterableIterator<TResponseStreamEvent>;
 }
 

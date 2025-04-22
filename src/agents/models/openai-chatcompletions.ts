@@ -87,7 +87,8 @@ export class OpenAIChatCompletionsModel implements Model {
     tools: Tool[],
     outputSchema: AgentOutputSchema | null,
     handoffs: Handoff<any>[],
-    tracing: ModelTracing
+    tracing: ModelTracing,
+    previousResponseId?: string
   ): Promise<ModelResponse> {
     const convertedInput =
       typeof input === 'string'
@@ -160,7 +161,8 @@ export class OpenAIChatCompletionsModel implements Model {
     tools: Tool[],
     outputSchema: AgentOutputSchema | null,
     handoffs: Handoff<any>[],
-    tracing: ModelTracing
+    tracing: ModelTracing,
+    previousResponseId?: string
   ): AsyncGenerator<TResponseStreamEvent> {
     const convertedInput =
       typeof input === 'string'

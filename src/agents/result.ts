@@ -112,6 +112,10 @@ export abstract class RunResultBase {
 
     return [...originalItems, ...newItems];
   }
+
+  get lastResponseId(): string | null {
+    return this.rawResponses[this.rawResponses.length - 1]?.response_id ?? null;
+  }
 }
 
 /**

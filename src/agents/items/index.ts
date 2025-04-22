@@ -239,16 +239,16 @@ export class ModelResponse {
    * An ID for the response which can be used to refer to the response in subsequent calls to the
    * model. Not supported by all model providers.
    */
-  referenceable_id: string | null;
+  response_id: string | null;
 
   constructor(
     output: TResponseOutputItem[],
     usage: Usage,
-    referenceable_id: string | null = null
+    response_id: string | null = null
   ) {
     this.output = output;
     this.usage = usage;
-    this.referenceable_id = referenceable_id;
+    this.response_id = response_id;
   }
 
   /**
