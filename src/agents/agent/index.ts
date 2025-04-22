@@ -74,7 +74,7 @@ interface AgentProps<TContext = any> {
   /** Model-specific tuning parameters */
   model_settings?: ModelSettings;
   /** A list of tools that the agent can use */
-  tools: Array<Tool>;
+  tools?: Array<Tool>;
   /** Model Context Protocol servers the agent can use */
   mcp_servers?: any; // TODO: Implement `MCPServer` . Then uncomment: Array<MCPServer>
   /** Checks that run before generating a response */
@@ -126,7 +126,7 @@ export class Agent<TContext> {
   model_settings: ModelSettings = new ModelSettings();
 
   /** A list of tools that the agent can use */
-  tools: Array<Tool> = [];
+  tools?: Array<Tool> = [];
 
   /**
    * A list of Model Context Protocol servers that the agent can use.
@@ -188,7 +188,7 @@ export class Agent<TContext> {
     this.handoffs = handoffs;
     this.model = model ?? DEFAULT_MODEL;
     this.model_settings = model_settings ?? new ModelSettings();
-    this.tools = tools;
+    this.tools = tools || [];
     this.mcp_servers = mcp_servers;
     this.input_guardrails = input_guardrails ?? [];
     this.output_guardrails = output_guardrails ?? [];
@@ -229,7 +229,7 @@ export class Agent<TContext> {
    */
   async getAllTools(): Promise<Tool[]> {
     const mcpTools = await this.getMCPTools();
-    return [...mcpTools, ...this.tools];
+    return [...(mcpTools ?? []), ...(this.tools ?? [])];
   }
 
   /**
