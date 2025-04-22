@@ -116,20 +116,20 @@ export class RunConfig {
   /**
    * Whether tracing is disabled for the agent run. If disabled, we will not trace the agent run.
    */
-  tracingDisabled: boolean = false;
+  tracingDisabled?: boolean = false;
 
   /**
    * Whether we include potentially sensitive data (for example: inputs/outputs of tool calls or
    * LLM generations) in traces. If False, we'll still create spans for these events, but the
    * sensitive data will not be included.
    */
-  traceIncludeSensitiveData: boolean = true;
+  traceIncludeSensitiveData?: boolean = true;
 
   /**
    * The name of the run, used for tracing. Should be a logical name for the run, like
    * "Code generation workflow" or "Customer support agent".
    */
-  workflowName: string = 'Agent workflow';
+  workflowName?: string = 'Agent workflow';
 
   /**
    * A custom trace ID to use for tracing. If not provided, we will generate a new trace ID.
@@ -175,6 +175,7 @@ export class Runner {
       maxTurns?: number;
       hooks?: RunHooks<TContext>;
       runConfig?: RunConfig;
+      previousResponseId?: string;
     } = {}
   ): Promise<RunResult> {
     const {
@@ -191,7 +192,7 @@ export class Runner {
     const newTrace = currentTrace
       ? null
       : trace(
-          runConfig.workflowName,
+          runConfig.workflowName ?? 'Agent workflow',
           runConfig.traceId,
           runConfig.groupId,
           runConfig.traceMetadata,
@@ -286,6 +287,7 @@ export class Runner {
               runConfig,
               shouldRunAgentStartHooks,
               toolUseTracker,
+              previousResponseId: options.previousResponseId,
             });
           } else {
             // Fetch tools for subsequent turns if agent changed (span is new)
@@ -306,6 +308,7 @@ export class Runner {
               runConfig,
               shouldRunAgentStartHooks,
               toolUseTracker,
+              previousResponseId: options.previousResponseId,
             });
           }
           shouldRunAgentStartHooks = false;
@@ -444,6 +447,7 @@ export class Runner {
       maxTurns?: number;
       hooks?: RunHooks<TContext>;
       runConfig?: RunConfig;
+      previousResponseId?: string;
     } = {}
   ): RunResultStreaming {
     const {
@@ -458,7 +462,7 @@ export class Runner {
     const newTrace = currentTrace
       ? null
       : trace(
-          runConfig.workflowName,
+          runConfig.workflowName ?? 'Agent workflow',
           runConfig.traceId,
           runConfig.groupId,
           runConfig.traceMetadata,
@@ -495,7 +499,8 @@ export class Runner {
       maxTurns,
       hooks,
       contextWrapper,
-      runConfig
+      runConfig,
+      options.previousResponseId
     );
 
     // Set the task on the streamed result
@@ -717,6 +722,7 @@ export class Runner {
     runConfig,
     shouldRunAgentStartHooks,
     toolUseTracker,
+    previousResponseId,
   }: {
     agent: Agent<TContext>;
     allTools: Tool[];
@@ -727,6 +733,7 @@ export class Runner {
     runConfig: RunConfig;
     shouldRunAgentStartHooks: boolean;
     toolUseTracker: AgentToolUseTracker;
+    previousResponseId?: string;
   }): Promise<SingleStepResult> {
     // Ensure we run the hooks before anything else
     if (shouldRunAgentStartHooks) {
@@ -753,7 +760,8 @@ export class Runner {
       handoffs,
       contextWrapper,
       runConfig,
-      toolUseTracker
+      toolUseTracker,
+      previousResponseId
     );
 
     contextWrapper.usage.add(newResponse.usage);
@@ -786,7 +794,8 @@ export class Runner {
     handoffs: Handoff<any>[],
     contextWrapper: RunContextWrapper<any>,
     runConfig: RunConfig,
-    toolUseTracker: AgentToolUseTracker
+    toolUseTracker: AgentToolUseTracker,
+    previousResponseId?: string
   ): Promise<ModelResponse> {
     const model = Runner._getModel(agent, runConfig);
     const modelSettings = agent.model_settings.resolve(runConfig.modelSettings);
@@ -814,9 +823,10 @@ export class Runner {
       outputSchema,
       handoffs,
       getModelTracingImpl(
-        runConfig.tracingDisabled,
-        runConfig.traceIncludeSensitiveData
-      )
+        runConfig.tracingDisabled ?? false,
+        runConfig.traceIncludeSensitiveData ?? true
+      ),
+      previousResponseId
     );
 
     contextWrapper.usage.add(newResponse.usage);
@@ -890,7 +900,8 @@ export class Runner {
     maxTurns: number,
     hooks: RunHooks<TContext>,
     contextWrapper: RunContextWrapper<TContext>,
-    runConfig: RunConfig
+    runConfig: RunConfig,
+    previousResponseId?: string
   ): Promise<void> {
     const toolUseTracker = new AgentToolUseTracker();
     let currentAgent = startingAgent;
@@ -916,7 +927,6 @@ export class Runner {
       try {
         await streamedResult._input_guardrails_task; // Wait for guardrails before starting turns
       } catch (e) {
-        console.log(' OROSPO CUCU PATLMAA', e);
         if (e instanceof InputGuardrailTripwireTriggered) {
           // Error already logged and attached to span in _runInputGuardrails
           await streamedResult.setError(e); // Propagate error to stream consumer
@@ -996,7 +1006,8 @@ export class Runner {
             toolUseTracker,
             await Runner._getAllTools(currentAgent), // Pass current tools
             currentOriginalInput, // Pass input potentially modified by handoffs
-            currentGeneratedItems // Pass items accumulated so far
+            currentGeneratedItems, // Pass items accumulated so far
+            previousResponseId
           );
           shouldRunAgentStartHooks = false;
 
@@ -1261,7 +1272,8 @@ export class Runner {
     toolUseTracker: AgentToolUseTracker,
     allTools: Tool[],
     originalInput: string | TResponseInputItem[], // Receive current input state
-    preStepItems: RunItem[] // Receive items generated before this turn
+    preStepItems: RunItem[], // Receive items generated before this turn
+    previousResponseId?: string
   ): Promise<SingleStepResult> {
     // Returns the result after streaming completes
     if (shouldRunAgentStartHooks) {
@@ -1321,9 +1333,10 @@ export class Runner {
         outputSchema,
         handoffs,
         getModelTracingImpl(
-          runConfig.tracingDisabled,
-          runConfig.traceIncludeSensitiveData
-        )
+          runConfig.tracingDisabled ?? false,
+          runConfig.traceIncludeSensitiveData ?? true
+        ),
+        previousResponseId
       );
 
       let partialText = '';
