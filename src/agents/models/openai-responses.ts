@@ -214,7 +214,8 @@ export class OpenAIResponsesModel implements Model {
     tools: Tool[],
     outputSchema: AgentOutputSchema | null,
     handoffs: Handoff<any>[],
-    tracing: ModelTracing
+    tracing: ModelTracing,
+    previousResponseId?: string
   ): Promise<ModelResponse> {
     try {
       const response = await this.fetchResponse(
@@ -224,7 +225,8 @@ export class OpenAIResponsesModel implements Model {
         tools,
         outputSchema,
         handoffs,
-        false
+        false,
+        previousResponseId
       );
 
       if (!('usage' in response) || !response.usage) {
@@ -268,7 +270,8 @@ export class OpenAIResponsesModel implements Model {
     tools: Tool[],
     outputSchema: AgentOutputSchema | null,
     handoffs: Handoff<any>[],
-    tracing: ModelTracing
+    tracing: ModelTracing,
+    previousResponseId?: string
   ): AsyncIterableIterator<TResponseStreamEvent> {
     const stream = await this.fetchResponse(
       systemInstructions,
@@ -277,7 +280,8 @@ export class OpenAIResponsesModel implements Model {
       tools,
       outputSchema,
       handoffs,
-      true
+      true,
+      previousResponseId
     );
 
     if (!(stream instanceof Stream)) {
@@ -296,7 +300,8 @@ export class OpenAIResponsesModel implements Model {
     tools: Tool[],
     outputSchema: AgentOutputSchema | null,
     handoffs: Handoff<any>[],
-    stream: boolean
+    stream: boolean,
+    previousResponseId?: string
   ): Promise<Response | Stream<ResponseStreamEvent>> {
     const listInput = Array.isArray(input)
       ? input
@@ -337,6 +342,7 @@ export class OpenAIResponsesModel implements Model {
       text: responseFormat,
       store: modelSettings.store ?? undefined,
       reasoning: modelSettings.reasoning ?? null,
+      previous_response_id: previousResponseId ?? undefined,
     };
 
     // console.log('----PARAMA SOKARIm\n\n', params, '\n\n----');
