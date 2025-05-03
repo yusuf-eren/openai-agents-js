@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { ModelBehaviorError, UserError } from '../exceptions';
 import { SpanError } from '../tracing';
 import { attachErrorToCurrentSpan } from '../utils';
@@ -48,7 +49,7 @@ export class AgentOutputSchema<T = any> {
       outputType === String
     ) {
       this._isWrapped = false;
-      this._outputSchema = this.generateJsonSchema(outputType);
+      this._outputSchema = outputType;
       return;
     }
 
@@ -60,13 +61,13 @@ export class AgentOutputSchema<T = any> {
       const wrapperType = {
         type: 'object',
         properties: {
-          [WRAPPER_DICT_KEY]: this.generateJsonSchema(outputType),
+          [WRAPPER_DICT_KEY]: outputType,
         },
         required: [WRAPPER_DICT_KEY],
       };
       this._outputSchema = wrapperType;
     } else {
-      this._outputSchema = this.generateJsonSchema(outputType);
+      this._outputSchema = outputType;
     }
 
     if (this.strictJsonSchema) {
@@ -163,48 +164,8 @@ export class AgentOutputSchema<T = any> {
   /**
    * The name of the output type.
    */
-  outputTypeName(): string {
+  get outputTypeName(): string {
     return typeToString(this.outputType);
-  }
-
-  /**
-   * Generate a JSON schema for the given type.
-   */
-  private generateJsonSchema(type: any): Record<string, any> {
-    if (type._def?.typeName === 'ZodString') {
-      return { type: 'string' };
-    } else if (type._def?.typeName === 'ZodNumber') {
-      return { type: 'number' };
-    } else if (type._def?.typeName === 'ZodBoolean') {
-      return { type: 'boolean' };
-    } else if (type._def?.typeName === 'ZodNull') {
-      return { type: 'null' };
-    } else if (type._def?.typeName === 'ZodArray') {
-      return {
-        type: 'array',
-        items: this.generateJsonSchema(type._def.type),
-      };
-    } else if (type._def?.typeName === 'ZodObject') {
-      const properties: Record<string, any> = {};
-      const required: string[] = [];
-
-      Object.entries(type._def.shape()).forEach(([key, value]: any) => {
-        properties[key] = this.generateJsonSchema(value);
-        if (!value.isOptional()) {
-          required.push(key);
-        }
-      });
-
-      return {
-        type: 'object',
-        properties,
-        required: required.length > 0 ? required : undefined,
-        additionalProperties: false,
-      };
-    } else {
-      // Default to any type if we can't determine the schema
-      return {};
-    }
   }
 }
 
