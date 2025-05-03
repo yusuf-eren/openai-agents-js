@@ -1,4 +1,6 @@
 import { OpenAI } from 'openai';
+import { z } from 'zod';
+import { zodResponseFormat } from 'openai/helpers/zod';
 import {
   Model,
   ModelProvider,
@@ -518,9 +520,6 @@ export class OpenAIChatCompletionsModel implements Model {
       );
     }
 
-    // --- Add Logging ---
-    // --- End Logging ---
-
     const store = modelSettings.store ?? true;
 
     const ret = await this._client!.chat.completions.create({
@@ -592,14 +591,10 @@ class _Converter {
       return undefined;
     }
 
-    return {
-      type: 'json_schema',
-      json_schema: {
-        name: 'final_output',
-        strict: finalOutputSchema.strictJsonSchema,
-        schema: finalOutputSchema.jsonSchema(),
-      },
-    };
+    return zodResponseFormat(
+      z.object({ response: finalOutputSchema.outputType.outputType }),
+      'final_output'
+    );
   }
 
   static messageToOutputItems(message: any): TResponseOutputItem[] {

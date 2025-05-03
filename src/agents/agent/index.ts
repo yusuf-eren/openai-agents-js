@@ -10,6 +10,7 @@ import { ModelSettings } from '../models/model-settings';
 import { ItemHelpers } from '../items';
 import { OpenAIProvider, DEFAULT_MODEL } from '../models/openai-provider';
 import { RunResult } from '../result';
+import { AgentOutputSchema } from '../agent-outputs';
 
 /**
  * Specifies how tools should be chosen by the model.
@@ -82,7 +83,7 @@ interface AgentProps<TContext = any> {
   /** Checks that run on the final output of the agent */
   output_guardrails?: Array<OutputGuardrail<TContext>>;
   /** The type of the output object */
-  output_type?: any;
+  output_type?: AgentOutputSchema<TContext>;
   /** Callbacks for agent lifecycle events */
   hooks?: AgentHooks<TContext>;
   /** Configures how tool use is handled */
