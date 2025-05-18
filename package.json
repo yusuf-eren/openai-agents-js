@@ -1,6 +1,6 @@
 {
   "name": "openai-agents-js",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "An unofficial Node.js library for building AI agents and multi-agent workflows with OpenAI",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -28,6 +28,7 @@
   },
   "homepage": "https://github.com/yusuferen/openaiagents-node#readme",
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.11.0",
     "dotenv": "^16.4.7",
     "openai": "^4.94.0",
     "uuid": "^11.1.0",

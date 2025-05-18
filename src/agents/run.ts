@@ -57,6 +57,7 @@ type ResponseCompletedEvent = InstanceType<typeof Stream> extends AsyncIterable<
   ? T
   : any; // Infer event type if possible
 import { Usage } from './usage';
+import { MCPUtil } from './mcp';
 
 // --- Placeholder for RunResultStreaming augmentation ---
 // Ideally, this modification belongs in src/agents/result.ts
@@ -551,7 +552,10 @@ export class Runner {
     // If agent.tools and agent.mcp_servers are readily available properties,
     // this might not need to be async. Adjust based on Agent implementation.
     // For now, matching the Python signature which suggests potential async operations.
-    const tools = [...(agent.tools || []), ...(agent.mcp_servers || [])];
+    const tools = [
+      ...(agent.tools || []),
+      ...(await MCPUtil.getFunctionTools(agent.mcp_servers)),
+    ];
     // Example: If agent had an async method:
     // const dynamicTools = await agent.getDynamicTools();
     // return [...tools, ...dynamicTools];
