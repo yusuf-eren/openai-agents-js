@@ -3,6 +3,7 @@ import {
   FileSearchTool as file_search_tool,
   WebSearchTool as web_search_tool,
 } from 'openai/resources/responses/responses';
+import { MCPTool } from '../mcp/types';
 
 import { RunItem } from '../items';
 import { RunContextWrapper } from '../run-context';
@@ -287,7 +288,7 @@ export class ComputerTool {
 /**
  * A tool that can be used in an agent.
  */
-export type Tool = FunctionTool | FileSearchTool | WebSearchTool | ComputerTool;
+export type Tool = FunctionTool | FileSearchTool | WebSearchTool | ComputerTool | MCPTool;
 
 /**
  * Function type for handling tool errors

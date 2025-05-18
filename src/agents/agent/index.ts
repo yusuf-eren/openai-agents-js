@@ -11,6 +11,7 @@ import { ItemHelpers } from '../items';
 import { OpenAIProvider, DEFAULT_MODEL } from '../models/openai-provider';
 import { RunResult } from '../result';
 import { AgentOutputSchema } from '../agent-outputs';
+import { MCPServer, MCPUtil } from '../mcp';
 
 /**
  * Specifies how tools should be chosen by the model.
@@ -77,7 +78,7 @@ interface AgentProps<TContext = any> {
   /** A list of tools that the agent can use */
   tools?: Array<Tool>;
   /** Model Context Protocol servers the agent can use */
-  mcp_servers?: any; // TODO: Implement `MCPServer` . Then uncomment: Array<MCPServer>
+  mcp_servers?: Array<MCPServer>;
   /** Checks that run before generating a response */
   input_guardrails?: Array<InputGuardrail<TContext>>;
   /** Checks that run on the final output of the agent */
@@ -133,7 +134,7 @@ export class Agent<TContext> {
    * A list of Model Context Protocol servers that the agent can use.
    * Every time the agent runs, it will include tools from these servers.
    */
-  mcp_servers: any = []; // TODO: Implement `MCPServer` . Then uncomment: Array<MCPServer>
+  mcp_servers: Array<MCPServer> = [];
 
   /**
    * A list of checks that run before generating a response.
@@ -190,7 +191,7 @@ export class Agent<TContext> {
     this.model = model ?? DEFAULT_MODEL;
     this.model_settings = model_settings ?? new ModelSettings();
     this.tools = tools || [];
-    this.mcp_servers = mcp_servers;
+    this.mcp_servers = mcp_servers ?? [];
     this.input_guardrails = input_guardrails ?? [];
     this.output_guardrails = output_guardrails ?? [];
     this.output_type = output_type;
@@ -202,17 +203,13 @@ export class Agent<TContext> {
   /**
    * Get the system prompt for the agent.
    */
-  async getSystemPrompt(
-    runContext: RunContextWrapper<TContext>
-  ): Promise<string | null> {
+  async getSystemPrompt(runContext: RunContextWrapper<TContext>): Promise<string | null> {
     if (typeof this.instructions === 'string') {
       return this.instructions;
     } else if (typeof this.instructions === 'function') {
       return await this.instructions(runContext, this);
     } else if (this.instructions !== null) {
-      console.error(
-        `Instructions must be a string or a function, got ${this.instructions}`
-      );
+      console.error(`Instructions must be a string or a function, got ${this.instructions}`);
     }
     return null;
   }
@@ -221,8 +218,7 @@ export class Agent<TContext> {
    * Fetches the available tools from the MCP servers.
    */
   async getMCPTools(): Promise<Tool[]> {
-    // TODO: Implement MCPUtil.get_all_function_tools
-    return [];
+    return MCPUtil.getFunctionTools(this.mcp_servers);
   }
 
   /**

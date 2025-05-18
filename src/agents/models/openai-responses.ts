@@ -3,20 +3,8 @@ import { z } from 'zod';
 import { zodTextFormat } from 'openai/helpers/zod';
 import { AgentOutputSchema } from '../agent-outputs';
 import { Handoff } from '../handoffs';
-import {
-  ModelResponse,
-  TResponseInputItem,
-  TResponseStreamEvent,
-  TResponseOutputItem,
-  ItemHelpers,
-} from '../items';
-import {
-  Tool,
-  FunctionTool,
-  FileSearchTool,
-  WebSearchTool,
-  ComputerTool,
-} from '../tools';
+import { ModelResponse, TResponseInputItem, TResponseStreamEvent, TResponseOutputItem, ItemHelpers } from '../items';
+import { Tool, FunctionTool, FileSearchTool, WebSearchTool, ComputerTool } from '../tools';
 import { ModelSettings } from './model-settings';
 import { Model, ModelTracing, ModelTracingUtils } from './interface';
 
@@ -32,6 +20,7 @@ import {
   Tool as OpenAITool,
 } from 'openai/resources/responses/responses';
 import { APIPromise } from 'openai/core';
+import { MCPTool } from '../mcp/types';
 
 type ResponseAPIResponse =
   | APIPromise<Response>
@@ -74,9 +63,7 @@ export class Converter {
     }
   }
 
-  static getResponseFormat(
-    outputSchema: AgentOutputSchema | null
-  ): ResponseTextConfig | undefined {
+  static getResponseFormat(outputSchema: AgentOutputSchema | null): ResponseTextConfig | undefined {
     if (!outputSchema || outputSchema.isPlainText()) return undefined;
     return {
       format: zodTextFormat(
@@ -93,13 +80,9 @@ export class Converter {
     const convertedTools: OpenAITool[] = [];
     const includes: ResponseIncludable[] = [];
 
-    const computerTools = tools.filter(
-      (tool): tool is ComputerTool => tool instanceof ComputerTool
-    );
+    const computerTools = tools.filter((tool): tool is ComputerTool => tool instanceof ComputerTool);
     if (computerTools.length > 1) {
-      throw new Error(
-        `Only one computer tool is allowed. Got ${computerTools.length}`
-      );
+      throw new Error(`Only one computer tool is allowed. Got ${computerTools.length}`);
     }
 
     for (const tool of tools) {
@@ -167,9 +150,7 @@ export class Converter {
 
       return {
         convertedTool,
-        include: tool.include_search_results
-          ? 'file_search_call.results'
-          : null,
+        include: tool.include_search_results ? 'file_search_call.results' : null,
       };
     }
 
@@ -182,6 +163,15 @@ export class Converter {
           display_height: tool.computer.dimensions[1],
         },
         include: 'computer_call_output.output.image_url',
+      };
+    }
+
+    if (tool instanceof MCPTool) {
+      return {
+        convertedTool: {
+          type: 'mcp',
+        },
+        include: null,
       };
     }
 
@@ -302,20 +292,13 @@ export class OpenAIResponsesModel implements Model {
     stream: boolean,
     previousResponseId?: string
   ): Promise<Response | Stream<ResponseStreamEvent>> {
-    const listInput = Array.isArray(input)
-      ? input
-      : [{ type: 'input_text', text: input }];
+    const listInput = Array.isArray(input) ? input : [{ type: 'input_text', text: input }];
 
     const toolChoice = Converter.convertToolChoice(modelSettings.tool_choice);
-    const { tools: convertedTools, includes } = Converter.convertTools(
-      tools,
-      handoffs
-    );
+    const { tools: convertedTools, includes } = Converter.convertTools(tools, handoffs);
     const responseFormat = Converter.getResponseFormat(outputSchema);
 
-    const params:
-      | ResponseCreateParamsNonStreaming
-      | ResponseCreateParamsStreaming = {
+    const params: ResponseCreateParamsNonStreaming | ResponseCreateParamsStreaming = {
       model: this.model,
       input: listInput,
       include: includes,
