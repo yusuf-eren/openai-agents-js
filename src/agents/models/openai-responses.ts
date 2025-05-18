@@ -1,10 +1,12 @@
+import OpenAI from 'openai';
+import { z } from 'zod';
+import { zodTextFormat } from 'openai/helpers/zod';
 import { AgentOutputSchema } from '../agent-outputs';
 import { Handoff } from '../handoffs';
 import { ModelResponse, TResponseInputItem, TResponseStreamEvent, TResponseOutputItem, ItemHelpers } from '../items';
 import { Tool, FunctionTool, FileSearchTool, WebSearchTool, ComputerTool } from '../tools';
 import { ModelSettings } from './model-settings';
 import { Model, ModelTracing, ModelTracingUtils } from './interface';
-import OpenAI from 'openai';
 
 import { Stream } from 'openai/streaming';
 import {
@@ -64,12 +66,10 @@ export class Converter {
   static getResponseFormat(outputSchema: AgentOutputSchema | null): ResponseTextConfig | undefined {
     if (!outputSchema || outputSchema.isPlainText()) return undefined;
     return {
-      format: {
-        type: 'json_schema',
-        name: 'final_output',
-        schema: outputSchema.jsonSchema(),
-        strict: outputSchema.strictJsonSchema,
-      },
+      format: zodTextFormat(
+        z.object({ response: outputSchema.outputType.outputType }),
+        'final_output'
+      ),
     };
   }
 
@@ -326,8 +326,6 @@ export class OpenAIResponsesModel implements Model {
       reasoning: modelSettings.reasoning ?? null,
       previous_response_id: previousResponseId ?? undefined,
     };
-
-    // console.log('----PARAMA SOKARIm\n\n', params, '\n\n----');
 
     return this.client.responses.create(params);
   }
