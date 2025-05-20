@@ -21,12 +21,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yusuferen/openaiagents-node.git"
+    "url": "git+https://github.com/yusuf-eren/openai-agents-js.git"
   },
   "bugs": {
-    "url": "https://github.com/yusuferen/openaiagents-node/issues"
+    "url": "https://github.com/yusuf-eren/openai-agents-js/issues"
   },
-  "homepage": "https://github.com/yusuferen/openaiagents-node#readme",
+  "homepage": "https://github.com/yusuf-eren/openai-agents-js#readme",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.11.0",
     "dotenv": "^16.4.7",
