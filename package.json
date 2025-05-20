@@ -15,7 +15,12 @@
     "agents",
     "llm",
     "typescript",
-    "nodejs"
+    "nodejs",
+    "openai-agents",
+    "openai-agents-js",
+    "openai-agents-node",
+    "openai-agents-ts",
+    "ai-agents"
   ],
   "author": "Yusuf Eren",
   "license": "MIT",
