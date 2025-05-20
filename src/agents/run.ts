@@ -229,7 +229,7 @@ export class Runner {
             );
             const outputSchema = Runner._getOutputSchema(currentAgent);
             const outputTypeName = outputSchema
-              ? outputSchema.outputTypeName()
+              ? outputSchema.outputTypeName
               : 'str';
 
             currentSpan = agentSpan(
@@ -959,7 +959,7 @@ export class Runner {
           );
           const outputSchema = Runner._getOutputSchema(currentAgent);
           const outputTypeName = outputSchema
-            ? outputSchema.outputTypeName()
+            ? outputSchema.outputTypeName
             : 'str';
 
           currentSpan = agentSpan(
