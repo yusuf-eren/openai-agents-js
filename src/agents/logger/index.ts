@@ -98,4 +98,4 @@ export function getLogger(name: string): Logger {
 /**
  * Default logger instance for the OpenAI Agents SDK
  */
-export const logger = getLogger('openai.agents');
+export const logger = getLogger('openai-agents-js');

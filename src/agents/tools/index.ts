@@ -363,13 +363,13 @@ export interface FunctionToolOptions {
  *
  * // With options
  * const weatherTool = functionTool(
- *   {
+ * (location: string) => {
+ *   return getWeatherData(location);
+ * },
+ * {
  *     nameOverride: 'get_weather',
  *     descriptionOverride: 'Get weather for a location',
  *     failureErrorFunction: (ctx, error) => `Weather lookup failed: ${error.message}`
- *   }
- * )((location: string) => {
- *   return getWeatherData(location);
  * });
  * ```
  *
@@ -383,7 +383,7 @@ export interface FunctionToolOptions {
  * @param options.strictMode - Enable strict JSON schema validation (strongly recommended, default: true)
  * @returns A FunctionTool instance or a factory function
  */
-export function functionTool<TContext = any>(
+function functionTool<TContext = any>(
   funcOrOptions: ToolFunction<TContext> | FunctionToolOptions,
   options: FunctionToolOptions = {}
 ): FunctionTool | ((func: ToolFunction<TContext>) => FunctionTool) {
