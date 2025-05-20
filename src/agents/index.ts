@@ -11,3 +11,5 @@ export * from './items';
 export * from './models';
 export * from './run-context';
 export * from './_openai-shared';
+export * from './agent-outputs';
+export * from './mcp';
