@@ -14,6 +14,7 @@ import {
   Usage,
   FunctionTool,
   WebSearchTool,
+  AgentOutputSchema,
 } from '../../src/agents';
 
 class ExampleHooks extends RunHooks<RunContextWrapper> {
@@ -23,44 +24,23 @@ class ExampleHooks extends RunHooks<RunContextWrapper> {
     return `${usage.requests} requests, ${usage.input_tokens} input tokens, ${usage.output_tokens} output tokens, ${usage.total_tokens} total tokens`;
   }
 
-  async onAgentStart(
-    context: RunContextWrapper,
-    agent: Agent<RunContextWrapper>
-  ): Promise<void> {
+  async onAgentStart(context: RunContextWrapper, agent: Agent<RunContextWrapper>): Promise<void> {
     this.event_counter += 1;
-    console.log(
-      `### ${this.event_counter}: Agent ${
-        agent.name
-      } started. Usage: ${this._usage_to_str(context.usage)}`
-    );
+    console.log(`### ${this.event_counter}: Agent ${agent.name} started. Usage: ${this._usage_to_str(context.usage)}`);
   }
 
-  async onAgentEnd(
-    context: RunContextWrapper,
-    agent: Agent<RunContextWrapper>,
-    output: any
-  ): Promise<void> {
+  async onAgentEnd(context: RunContextWrapper, agent: Agent<RunContextWrapper>, output: any): Promise<void> {
     this.event_counter += 1;
     console.log(
-      `### ${this.event_counter}: Agent ${
-        agent.name
-      } ended with output ${output}. Usage: ${this._usage_to_str(
+      `### ${this.event_counter}: Agent ${agent.name} ended with output ${output}. Usage: ${this._usage_to_str(
         context.usage
       )}`
     );
   }
 
-  async onToolStart(
-    context: RunContextWrapper,
-    agent: Agent<RunContextWrapper>,
-    tool: Tool
-  ): Promise<void> {
+  async onToolStart(context: RunContextWrapper, agent: Agent<RunContextWrapper>, tool: Tool): Promise<void> {
     this.event_counter += 1;
-    console.log(
-      `### ${this.event_counter}: Tool ${
-        tool.name
-      } started. Usage: ${this._usage_to_str(context.usage)}`
-    );
+    console.log(`### ${this.event_counter}: Tool ${tool.name} started. Usage: ${this._usage_to_str(context.usage)}`);
   }
 
   async onToolEnd(
@@ -71,9 +51,7 @@ class ExampleHooks extends RunHooks<RunContextWrapper> {
   ): Promise<void> {
     this.event_counter += 1;
     console.log(
-      `### ${this.event_counter}: Tool ${
-        tool.name
-      } ended with result ${result}. Usage: ${this._usage_to_str(
+      `### ${this.event_counter}: Tool ${tool.name} ended with result ${result}. Usage: ${this._usage_to_str(
         context.usage
       )}`
     );
@@ -86,9 +64,9 @@ class ExampleHooks extends RunHooks<RunContextWrapper> {
   ): Promise<void> {
     this.event_counter += 1;
     console.log(
-      `### ${this.event_counter}: Handoff from ${fromAgent.name} to ${
-        toAgent.name
-      }. Usage: ${this._usage_to_str(context.usage)}`
+      `### ${this.event_counter}: Handoff from ${fromAgent.name} to ${toAgent.name}. Usage: ${this._usage_to_str(
+        context.usage
+      )}`
     );
   }
 }
@@ -135,32 +113,27 @@ const multiplyAgent = new Agent({
   name: 'Multiply Agent',
   instructions: 'Multiply the number by 2 and then return the final result.',
   tools: [multiplyByTwo],
-  output_type: FinalResult,
+  output_type: new AgentOutputSchema(FinalResult),
 });
 
 const startAgent = new Agent({
   name: 'Start Agent',
-  instructions:
-    "Generate a random number. If it's even, stop. If it's odd, hand off to the multiplier agent.",
+  instructions: "Generate a random number. If it's even, stop. If it's odd, hand off to the multiplier agent.",
   tools: [randomNumber, new WebSearchTool({})],
-  output_type: FinalResult,
+  output_type: new AgentOutputSchema(FinalResult),
   handoffs: [multiplyAgent],
 });
 
 async function main(): Promise<void> {
-  const userInput = await new Promise<string>((resolve) => {
+  const userInput = await new Promise<string>(resolve => {
     rl.question('Enter a max number: ', (answer: string) => {
       rl.close();
       resolve(answer || '0');
     });
   });
-  const result = await Runner.run(
-    startAgent,
-    `Generate a random number between 0 and ${userInput}.`,
-    {
-      hooks,
-    }
-  );
+  const result = await Runner.run(startAgent, `Generate a random number between 0 and ${userInput}.`, {
+    hooks,
+  });
 
   console.log(result.finalOutput);
   console.log('Done!');

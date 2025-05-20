@@ -1,38 +1,20 @@
 import { z } from 'zod';
-import {
-  Agent,
-  AgentHooks,
-  FunctionTool,
-  Runner,
-  Tool,
-  RunContextWrapper,
-} from '../../src/agents';
+import { Agent, AgentHooks, FunctionTool, Runner, Tool, RunContextWrapper, AgentOutputSchema } from '../../src/agents';
 
 class CustomAgentHooks implements AgentHooks<RunContextWrapper> {
   private eventCounter = 0;
 
   constructor(private displayName: string) {}
 
-  async onStart(
-    context: RunContextWrapper,
-    agent: Agent<RunContextWrapper>
-  ): Promise<void> {
+  async onStart(context: RunContextWrapper, agent: Agent<RunContextWrapper>): Promise<void> {
     this.eventCounter++;
-    console.log(
-      `### (${this.displayName}) ${this.eventCounter}: Agent ${agent.name} started`
-    );
+    console.log(`### (${this.displayName}) ${this.eventCounter}: Agent ${agent.name} started`);
   }
 
-  async onEnd(
-    context: RunContextWrapper,
-    agent: Agent<RunContextWrapper>,
-    output: any
-  ): Promise<void> {
+  async onEnd(context: RunContextWrapper, agent: Agent<RunContextWrapper>, output: any): Promise<void> {
     this.eventCounter++;
     console.log(
-      `### (${this.displayName}) ${this.eventCounter}: Agent ${
-        agent.name
-      } ended with output ${JSON.stringify(output)}`
+      `### (${this.displayName}) ${this.eventCounter}: Agent ${agent.name} ended with output ${JSON.stringify(output)}`
     );
   }
 
@@ -42,28 +24,15 @@ class CustomAgentHooks implements AgentHooks<RunContextWrapper> {
     source: Agent<RunContextWrapper>
   ): Promise<void> {
     this.eventCounter++;
-    console.log(
-      `### (${this.displayName}) ${this.eventCounter}: Agent ${source.name} handed off to ${agent.name}`
-    );
+    console.log(`### (${this.displayName}) ${this.eventCounter}: Agent ${source.name} handed off to ${agent.name}`);
   }
 
-  async onToolStart(
-    context: RunContextWrapper,
-    agent: Agent<RunContextWrapper>,
-    tool: Tool
-  ): Promise<void> {
+  async onToolStart(context: RunContextWrapper, agent: Agent<RunContextWrapper>, tool: Tool): Promise<void> {
     this.eventCounter++;
-    console.log(
-      `### (${this.displayName}) ${this.eventCounter}: Agent ${agent.name} started tool ${tool.name}`
-    );
+    console.log(`### (${this.displayName}) ${this.eventCounter}: Agent ${agent.name} started tool ${tool.name}`);
   }
 
-  async onToolEnd(
-    context: RunContextWrapper,
-    agent: Agent<RunContextWrapper>,
-    tool: Tool,
-    result: any
-  ): Promise<void> {
+  async onToolEnd(context: RunContextWrapper, agent: Agent<RunContextWrapper>, tool: Tool, result: any): Promise<void> {
     this.eventCounter++;
     console.log(
       `### (${this.displayName}) ${this.eventCounter}: Agent ${agent.name} ended tool ${tool.name} with result ${result}`
@@ -110,26 +79,22 @@ const multiplyAgent = new Agent({
   name: 'Multiply Agent',
   instructions: 'Multiply the number by 2 and then return the final result.',
   tools: [multiplyByTwo],
-  output_type: FinalOutputSchema,
+  output_type: new AgentOutputSchema(FinalOutputSchema),
   hooks: new CustomAgentHooks('Multiply Agent'),
 });
 
 const startAgent = new Agent({
   name: 'Start Agent',
-  instructions:
-    "Generate a random number. If it's even, stop. If it's odd, hand off to the multiply agent.",
+  instructions: "Generate a random number. If it's even, stop. If it's odd, hand off to the multiply agent.",
   tools: [randomNumber],
-  output_type: FinalOutputSchema,
+  output_type: new AgentOutputSchema(FinalOutputSchema),
   handoffs: [multiplyAgent],
   hooks: new CustomAgentHooks('Start Agent'),
 });
 
 async function main() {
   const maxNum = 250; // In a real app, get this from user input
-  await Runner.run(
-    startAgent,
-    `Generate a random number between 0 and ${maxNum}.`
-  );
+  await Runner.run(startAgent, `Generate a random number between 0 and ${maxNum}.`);
 
   console.log('Done!');
 }
