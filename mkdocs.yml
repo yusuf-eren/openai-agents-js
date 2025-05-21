@@ -36,6 +36,7 @@ plugins:
       default_language: en
       docs_structure: folder
       languages:
+        - locale: en
           default: true
           name: English
           build: true
