@@ -1,3 +1,6 @@
 node_modules
 .env
 dist
+.cache
+site
+.DS_Store

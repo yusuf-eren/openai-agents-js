@@ -30,12 +30,14 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.11.0",
     "dotenv": "^16.4.7",
+    "graphviz": "^0.0.9",
     "openai": "^4.94.0",
     "uuid": "^11.1.0",
     "zod": "^3.24.2"
   },
   "devDependencies": {
     "@types/dotenv": "^6.1.1",
+    "@types/graphviz": "^0.0.39",
     "@types/jest": "^29.5.12",
     "@types/node": "^22.13.17",
     "@types/uuid": "^10.0.0",
