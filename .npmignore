@@ -14,3 +14,11 @@ docs/
 .cache/
 .DS_Store
 requirements.txt
+examples/
+.github/
+.github/workflows/
+.prettierrc
+site/
+.venv/
+.vscode/
+.env
