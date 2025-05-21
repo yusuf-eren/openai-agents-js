@@ -11,6 +11,8 @@
         <link rel="canonical" href="https://yusuf-eren.github.io/openai-agents-js/tracing/">
       
       
+        <link rel="prev" href="../tools/">
+      
       
       
       <link rel="icon" href="../images/favicon-platform.svg">
@@ -128,8 +130,8 @@
       <ul class="md-select__list">
         
           <li class="md-select__item">
-            <a href="/" hreflang="en" class="md-select__link">
-              English
+            <a href="./" hreflang="en" class="md-select__link">
+              {'default': True, 'name': 'English', 'build': True, 'nav': [{'Intro': 'index.md'}, {'Quickstart': 'quickstart.md'}]}
             </a>
           </li>
         
@@ -251,7 +253,73 @@
   
   
   <span class="md-ellipsis">
-    Intro
+    OpenAI Agents SDK
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../agents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Agents
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guardrails/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Guardrails
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../handoffs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Handoffs
     
   </span>
   
@@ -279,6 +347,254 @@
   
 
       </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Tools
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Tracing
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    Tracing
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#basic-tracing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Basic Tracing
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#trace-levels" class="md-nav__link">
+    <span class="md-ellipsis">
+      Trace Levels
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#trace-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      Trace Types
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Trace Types">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-agent-traces" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Agent Traces
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-tool-traces" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Tool Traces
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-handoff-traces" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Handoff Traces
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#trace-storage" class="md-nav__link">
+    <span class="md-ellipsis">
+      Trace Storage
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Trace Storage">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-console-storage" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Console Storage
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-file-storage" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. File Storage
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-custom-storage" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Custom Storage
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#advanced-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      Advanced Features
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Advanced Features">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#trace-filtering" class="md-nav__link">
+    <span class="md-ellipsis">
+      Trace Filtering
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#trace-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      Trace Analysis
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#trace-visualization" class="md-nav__link">
+    <span class="md-ellipsis">
+      Trace Visualization
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      Best Practices
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#next-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      Next Steps
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
