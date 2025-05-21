@@ -19,9 +19,8 @@ import {
   prettyPrintRunResultStreaming,
 } from './utils/pretty-print';
 import { QueueCompleteSentinel } from './_run-impl';
-import { RunImpl } from './_run-impl';
 import { SingleStepResult } from './_run-impl';
-import { AgentUpdatedStreamEvent } from './stream-events';
+import { ZodType } from 'zod';
 
 /**
  * Base class for run results
@@ -83,19 +82,22 @@ export abstract class RunResultBase {
   /**
    * A convenience method to cast the final output to a specific type. By default, the cast
    * is only for the typechecker. If you set `raiseIfIncorrectType` to true, we'll raise a
-   * TypeError if the final output is not of the given type.
+   * TypeError if the final output does not match the Zod schema.
    *
-   * @param cls The type to cast the final output to.
-   * @param raiseIfIncorrectType If true, we'll raise a TypeError if the final output is not of
-   * the given type.
-   * @returns The final output casted to the given type.
+   * @param type The Zod schema to validate and parse the final output with.
+   * @param raiseIfIncorrectType If true, we'll raise a TypeError if the final output does not match the schema.
+   * @returns The final output parsed according to the schema.
    */
   finalOutputAs<T>(
-    cls: new (...args: any[]) => T,
+    type: ZodType<T>,
     raiseIfIncorrectType: boolean = false
   ): T {
-    if (raiseIfIncorrectType && !(this.finalOutput instanceof cls)) {
-      throw new TypeError(`Final output is not of type ${cls.name}`);
+    if (raiseIfIncorrectType) {
+      const result = type.safeParse(this.finalOutput);
+      if (!result.success) {
+        throw new TypeError(`Final output validation failed: ${result.error.message}`);
+      }
+      return result.data;
     }
 
     return this.finalOutput as T;
