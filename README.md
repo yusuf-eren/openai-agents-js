@@ -1,31 +1,17 @@
-# OpenAI Agents SDK Node.js
+# OpenAI Agents SDK
 
-The OpenAI Agents SDK Node.js is a TypeScript port of the official [OpenAI Agents SDK](https://github.com/openai/openai-agents-python). This library provides the exact same functionality and API as the Python version, but implemented in TypeScript/JavaScript for Node.js environments.
+This is a TypeScript port of the official [OpenAI Agents SDK](https://github.com/openai/openai-agents-python). This library maintains complete feature parity with the Python version, providing the exact same functionality, API design, and implementation patterns, just implemented in TypeScript/JavaScript for Node.js environments.
 
-> **Note**: This is an unofficial TypeScript port of the official OpenAI Agents SDK. While it maintains feature parity with the Python version, it's not officially supported by OpenAI.
-
-### Feature Parity
-
-This TypeScript implementation maintains complete feature parity with the official Python SDK, including:
-
-- ✅ Agent creation and management
-- ✅ Tool integration
-- ✅ Handoffs between agents
-- ✅ Model settings and configuration
-- ✅ Response handling
-- ✅ Streaming support
-
-The only differences are:
-- Language-specific syntax (TypeScript/JavaScript instead of Python)
-- Node.js-specific environment handling
-- TypeScript type definitions for better development experience
+The OpenAI Agents SDK is a lightweight yet powerful framework for building multi-agent workflows. It is provider-agnostic, supporting the OpenAI Responses and Chat Completions APIs, as well as 100+ other LLMs.
 
 ### Core concepts:
 
 1. **Agents**: LLMs configured with instructions, tools, guardrails, and handoffs
-2. **Handoffs**: A specialized tool call used for transferring control between agents
-3. **Tools**: Functions that agents can call to perform specific tasks
-4. **Model Settings**: Configurable parameters for controlling model behavior
+2. **Handoffs**: A specialized tool call used by the Agents SDK for transferring control between agents
+3. **Guardrails**: Configurable safety checks for input and output validation
+4. **Tracing**: Built-in tracking of agent runs, allowing you to view, debug and optimize your workflows
+
+Explore the [examples](examples) directory to see the SDK in action, and read our [documentation](https://yusuf-eren.github.io/openai-agents-js/) for more details.
 
 ## Get started
 
@@ -38,26 +24,28 @@ npm install openai-agents-js
 2. Set up your environment:
 
 Create a `.env` file in your project root:
+
 ```bash
 OPENAI_API_KEY=your_api_key_here
 ```
 
 Or set it directly in your shell:
+
 ```bash
 export OPENAI_API_KEY=your_api_key_here
 ```
 
-## Basic example
+## Hello world example
 
 ```typescript
-import { Agent, Runner } from 'openai-agents';
+import { Agent, Runner } from 'openai-agents-js';
 
 const agent = new Agent({
-  name: "Assistant",
-  instructions: "You are a helpful assistant"
+  name: 'Assistant',
+  instructions: 'You are a helpful assistant',
 });
 
-const result = await Runner.run(agent, "Write a haiku about recursion in programming.");
+const result = await Runner.run(agent, 'Write a haiku about recursion in programming.');
 console.log(result.finalOutput);
 
 // Code within the code,
@@ -68,33 +56,33 @@ console.log(result.finalOutput);
 ## Handoffs example
 
 ```typescript
-import { Agent, Runner } from 'openai-agents';
+import { Agent, Runner } from 'openai-agents-js';
 
 const spanishAgent = new Agent({
-  name: "Spanish agent",
-  instructions: "You only speak Spanish."
+  name: 'Spanish agent',
+  instructions: 'You only speak Spanish.',
 });
 
 const englishAgent = new Agent({
-  name: "English agent",
-  instructions: "You only speak English"
+  name: 'English agent',
+  instructions: 'You only speak English',
 });
 
 const triageAgent = new Agent({
-  name: "Triage agent",
-  instructions: "Handoff to the appropriate agent based on the language of the request.",
-  handoffs: [spanishAgent, englishAgent]
+  name: 'Triage agent',
+  instructions: 'Handoff to the appropriate agent based on the language of the request.',
+  handoffs: [spanishAgent, englishAgent],
 });
 
-const result = await Runner.run(triageAgent, "Hola, ¿cómo estás?");
+const result = await Runner.run(triageAgent, 'Hola, ¿cómo estás?');
 console.log(result.finalOutput);
 // ¡Hola! Estoy bien, gracias por preguntar. ¿Y tú, cómo estás?
 ```
 
-## Tools example
+## Functions example
 
 ```typescript
-import { Agent, Runner, FunctionTool } from 'openai-agents';
+import { Agent, Runner, FunctionTool } from 'openai-agents-js';
 
 const weatherTool = new FunctionTool({
   name: 'get_weather',
@@ -102,25 +90,65 @@ const weatherTool = new FunctionTool({
   params_json_schema: {
     type: 'object',
     properties: {
-      city: { type: 'string' }
+      city: { type: 'string' },
     },
-    required: ['city']
+    required: ['city'],
   },
   on_invoke_tool: async ({ input }) => {
     return `The weather in ${input.city} is sunny.`;
-  }
+  },
 });
 
 const agent = new Agent({
-  name: "Weather Agent",
-  instructions: "You are a helpful weather assistant.",
-  tools: [weatherTool]
+  name: 'Weather Agent',
+  instructions: 'You are a helpful weather assistant.',
+  tools: [weatherTool],
 });
 
 const result = await Runner.run(agent, "What's the weather in Tokyo?");
 console.log(result.finalOutput);
 // The weather in Tokyo is sunny.
 ```
+
+## MCP (Model Context Protocol) example
+
+The Agents SDK supports the Model Context Protocol (MCP), which allows agents to interact with external services through a standardized interface. Here's an example using the filesystem MCP server:
+
+```typescript
+import { Agent, Runner, MCPServerStdio } from 'openai-agents-js';
+import path from 'path';
+
+async function main() {
+  const currentFileDir = path.dirname(process.argv[1]);
+
+  // Initialize the filesystem MCP server
+  const mcp = [new MCPServerStdio('npx', ['-y', '@modelcontextprotocol/server-filesystem', currentFileDir])];
+
+  // Create an agent with MCP server integration
+  const agent = new Agent({
+    name: 'Assistant',
+    instructions: `Use the tools to read the filesystem and answer questions based on those files.`,
+    mcp_servers: mcp,
+  });
+
+  // Example queries using the filesystem
+  const result = await Runner.run(agent, 'Read the files and list them.');
+  console.log(result.finalOutput);
+
+  const result2 = await Runner.run(agent, 'What is my #1 favorite book?');
+  console.log(result2.finalOutput);
+}
+
+main();
+```
+
+This example demonstrates how to:
+
+1. Set up an MCP server for filesystem access
+2. Configure an agent to use the MCP server
+3. Query the filesystem through the agent
+
+The MCP server provides tools like `list_directory()`, `read_file()`, etc., which the agent can use to interact with the filesystem.
 
 ## The agent loop
 
@@ -138,37 +166,16 @@ You can limit the number of iterations using the `maxTurns` parameter.
 
 Final output is determined by:
 
-1. If you set an `outputType` on the agent, the final output is when the LLM returns something of that type.
-2. If there's no `outputType`, then the first LLM response without any tool calls or handoffs is considered as the final output.
+1. If you set an `output_type` on the agent, the final output is when the LLM returns something of that type.
+2. If there's no `output_type`, then the first LLM response without any tool calls or handoffs is considered as the final output.
 
-## Contributing
+## Common agent patterns
 
-This is an open-source project developed by the community. Contributions are welcome and appreciated! Here's how you can help:
+The Agents SDK is designed to be highly flexible, allowing you to model a wide range of LLM workflows including deterministic flows, iterative loops, and more. See examples in the `examples` directory.
 
-1. Report bugs and issues
-2. Suggest new features
-3. Improve documentation
-4. Submit pull requests
-5. Share your use cases and examples
+## Tracing
 
-To contribute:
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
-
-Please ensure your code follows the project's coding standards and includes appropriate tests.
-
-## Development Status
-
-- ✅ Core agent functionality
-- ✅ Tool support
-- ✅ Handoffs
-- ✅ Model settings
-- 🔄 Tracing (in development)
-- 🔄 Advanced examples (in development)
-- 🔄 Logging structure (to be refined)
+The Agents SDK automatically traces your agent runs, making it easy to track and debug the behavior of your agents. Tracing is extensible by design, supporting custom spans and a wide variety of external destinations.
 
 ## Development
 
@@ -198,4 +205,4 @@ We'd like to acknowledge the excellent work of the open-source community, especi
 - [TypeScript](https://www.typescriptlang.org/) for the language
 - [Node.js](https://nodejs.org/) for the runtime
 
-We're committed to continuing to build the Agents SDK as an open source framework so others in the community can expand on our approach. 
+We're committed to continuing to build the Agents SDK as an open source framework so others in the community can expand on our approach.
