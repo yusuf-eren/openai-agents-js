@@ -33,9 +33,9 @@ plugins:
             heading_level: 3
             inherited_members: true
   - i18n:
+      default_language: en
       docs_structure: folder
       languages:
-        - locale: en
           default: true
           name: English
           build: true
