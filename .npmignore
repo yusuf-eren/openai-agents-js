@@ -10,3 +10,7 @@ jest.config.js
 .vscode/
 .idea/
 *.log 
+docs/
+.cache/
+.DS_Store
+requirements.txt

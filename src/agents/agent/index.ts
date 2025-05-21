@@ -1,2 +1,2 @@
 export * from './agent';
-export * from './extensions/handoff_prompt';
+export * from './extensions';

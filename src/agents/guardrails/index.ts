@@ -8,6 +8,11 @@ import { RunContextWrapper } from '../run-context';
  */
 export type MaybeAwaitable<T> = T | Promise<T>;
 
+interface GuardrailFunctionOutputArgs {
+  output_info: any;
+  tripwire_triggered: boolean;
+}
+
 /**
  * The output of a guardrail function.
  */
@@ -23,7 +28,7 @@ export class GuardrailFunctionOutput {
    */
   tripwire_triggered: boolean;
 
-  constructor(output_info: any, tripwire_triggered: boolean) {
+  constructor({ output_info, tripwire_triggered }: GuardrailFunctionOutputArgs) {
     this.output_info = output_info;
     this.tripwire_triggered = tripwire_triggered;
   }
