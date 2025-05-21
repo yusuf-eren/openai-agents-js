@@ -23,9 +23,8 @@ plugins:
       handlers:
         python:
           paths: ["src/agents"]
-          selection:
-            docstring_style: google
           options:
+            docstring_style: google
             signature_crossrefs: true
             members_order: source
             separate_signature: true
