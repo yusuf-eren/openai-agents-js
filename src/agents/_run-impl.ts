@@ -2,12 +2,7 @@ import { Agent } from './agent';
 import { AgentOutputSchema } from './agent-outputs';
 import { AsyncComputer, Computer } from './computer';
 import { AgentsException, ModelBehaviorError, UserError } from './exceptions';
-import {
-  InputGuardrail,
-  InputGuardrailResult,
-  OutputGuardrail,
-  OutputGuardrailResult,
-} from './guardrails';
+import { InputGuardrail, InputGuardrailResult, OutputGuardrail, OutputGuardrailResult } from './guardrails';
 import { Handoff, HandoffInputData } from './handoffs';
 import {
   HandoffCallItem,
@@ -27,29 +22,9 @@ import { ModelSettings } from './models/model-settings';
 import { ModelTracing } from './models/interface';
 import { RunConfig } from './run';
 import { RunContextWrapper } from './run-context';
-import {
-  AgentUpdatedStreamEvent,
-  RunItemStreamEvent,
-  StreamEvent,
-  ToolsToFinalOutputResult,
-} from './stream-events';
-import {
-  ComputerTool,
-  FunctionTool,
-  FunctionToolResult,
-  Tool,
-  WebSearchTool,
-  FileSearchTool,
-} from './tools';
-import {
-  SpanError,
-  Trace,
-  functionSpan,
-  getCurrentTrace,
-  guardrailSpan,
-  handoffSpan,
-  trace,
-} from './tracing';
+import { AgentUpdatedStreamEvent, RunItemStreamEvent, StreamEvent, ToolsToFinalOutputResult } from './stream-events';
+import { ComputerTool, FunctionTool, FunctionToolResult, Tool, WebSearchTool, FileSearchTool } from './tools';
+import { SpanError, Trace, functionSpan, getCurrentTrace, guardrailSpan, handoffSpan, trace } from './tracing';
 import { attachErrorToCurrentSpan } from './utils';
 
 import {
@@ -74,7 +49,9 @@ import {
   ActionScroll,
   ActionType,
   ActionWait,
+  PendingSafetyCheck,
 } from './response-computer-tool-call';
+import { z } from 'zod';
 
 // Helper constants and types
 const NOT_FINAL_OUTPUT: ToolsToFinalOutputResult = {
@@ -94,30 +71,21 @@ async function noopCoroutine(): Promise<void> {
  * Represents a handoff tool run
  */
 export class ToolRunHandoff {
-  constructor(
-    public handoff: Handoff<any>,
-    public toolCall: ResponseFunctionToolCall
-  ) {}
+  constructor(public handoff: Handoff<any>, public toolCall: ResponseFunctionToolCall) {}
 }
 
 /**
  * Represents a function tool run
  */
 export class ToolRunFunction {
-  constructor(
-    public toolCall: ResponseFunctionToolCall,
-    public functionTool: FunctionTool
-  ) {}
+  constructor(public toolCall: ResponseFunctionToolCall, public functionTool: FunctionTool) {}
 }
 
 /**
  * Represents a computer action tool run
  */
 export class ToolRunComputerAction {
-  constructor(
-    public toolCall: ResponseComputerToolCall,
-    public computerTool: ComputerTool
-  ) {}
+  constructor(public toolCall: ResponseComputerToolCall, public computerTool: ComputerTool) {}
 }
 
 /**
@@ -136,11 +104,7 @@ export class ProcessedResponse {
    * Check if there are tools that need to be run
    */
   hasToolsToRun(): boolean {
-    return (
-      this.handoffs.length > 0 ||
-      this.functions.length > 0 ||
-      this.computerActions.length > 0
-    );
+    return this.handoffs.length > 0 || this.functions.length > 0 || this.computerActions.length > 0;
   }
 }
 
@@ -207,10 +171,7 @@ export class SingleStepResult {
 /**
  * Get the model tracing implementation based on configuration
  */
-export function getModelTracingImpl(
-  tracingDisabled: boolean,
-  traceIncludeSensitiveData: boolean
-): ModelTracing {
+export function getModelTracingImpl(tracingDisabled: boolean, traceIncludeSensitiveData: boolean): ModelTracing {
   if (tracingDisabled) {
     return ModelTracing.DISABLED;
   } else if (traceIncludeSensitiveData) {
@@ -230,7 +191,7 @@ export class AgentToolUseTracker {
    * Add tool usage for an agent
    */
   addToolUse(agent: Agent<any>, toolNames: string[]): void {
-    const existingData = this.agentToTools.find((item) => item[0] === agent);
+    const existingData = this.agentToTools.find(item => item[0] === agent);
     if (existingData) {
       existingData[1].push(...toolNames);
     } else {
@@ -242,7 +203,7 @@ export class AgentToolUseTracker {
    * Check if an agent has used any tools
    */
   hasUsedTools(agent: Agent<any>): boolean {
-    const existingData = this.agentToTools.find((item) => item[0] === agent);
+    const existingData = this.agentToTools.find(item => item[0] === agent);
     return existingData !== undefined && existingData[1].length > 0;
   }
 }
@@ -302,7 +263,7 @@ export class RunImpl {
       }),
     ]);
 
-    newStepItems.push(...functionResults.map((result) => result.run_item));
+    newStepItems.push(...functionResults.map(result => result.run_item));
     newStepItems.push(...computerResults);
 
     // Second, check if there are any handoffs
@@ -354,26 +315,16 @@ export class RunImpl {
     }
 
     // Now we can check if the model also produced a final output
-    const messageItems = newStepItems.filter(
-      (item) => item instanceof MessageOutputItem
-    );
+    const messageItems = newStepItems.filter(item => item instanceof MessageOutputItem);
 
     // We'll use the last content output as the final output
     const potentialFinalOutputText =
-      messageItems.length > 0
-        ? ItemHelpers.extractLastText(
-            messageItems[messageItems.length - 1].raw_item
-          )
-        : null;
+      messageItems.length > 0 ? ItemHelpers.extractLastText(messageItems[messageItems.length - 1].raw_item) : null;
 
     // There are two possibilities that lead to a final output:
     // 1. Structured output schema => always leads to a final output
     // 2. Plain text output schema => only leads to a final output if there are no tool calls
-    if (
-      outputSchema &&
-      !outputSchema.isPlainText() &&
-      potentialFinalOutputText
-    ) {
+    if (outputSchema && !outputSchema.isPlainText() && potentialFinalOutputText) {
       const finalOutput = outputSchema.validateJson(potentialFinalOutputText);
       return await this.executeFinalOutput({
         agent,
@@ -385,10 +336,7 @@ export class RunImpl {
         hooks,
         contextWrapper,
       });
-    } else if (
-      (!outputSchema || outputSchema.isPlainText()) &&
-      !processedResponse.hasToolsToRun()
-    ) {
+    } else if ((!outputSchema || outputSchema.isPlainText()) && !processedResponse.hasToolsToRun()) {
       return await this.executeFinalOutput({
         agent,
         originalInput,
@@ -401,13 +349,7 @@ export class RunImpl {
       });
     } else {
       // If there's no final output, we can just run again
-      return new SingleStepResult(
-        originalInput,
-        newResponse,
-        preStepItems,
-        newStepItems,
-        new NextStepRunAgain()
-      );
+      return new SingleStepResult(originalInput, newResponse, preStepItems, newStepItems, new NextStepRunAgain());
     }
   }
 
@@ -419,10 +361,7 @@ export class RunImpl {
     toolUseTracker: AgentToolUseTracker,
     modelSettings: ModelSettings
   ): ModelSettings {
-    if (
-      agent.reset_tool_choice === true &&
-      toolUseTracker.hasUsedTools(agent)
-    ) {
+    if (agent.reset_tool_choice === true && toolUseTracker.hasUsedTools(agent)) {
       return modelSettings.resolve();
     }
 
@@ -452,24 +391,16 @@ export class RunImpl {
     const computerActions: ToolRunComputerAction[] = [];
     const toolsUsed: string[] = [];
 
-    const handoffMap = new Map(handoffs.map((h) => [h.toolName, h]));
+    const handoffMap = new Map(handoffs.map(h => [h.toolName, h]));
     const functionMap = new Map(
-      allTools
-        .filter((tool): tool is FunctionTool => tool instanceof FunctionTool)
-        .map((tool) => [tool.name, tool])
+      allTools.filter((tool): tool is FunctionTool => tool instanceof FunctionTool).map(tool => [tool.name, tool])
     );
+    const computerTool = allTools.find((tool): tool is ComputerTool => tool instanceof ComputerTool);
 
-    const computerTool = allTools.find(
-      (tool): tool is ComputerTool => tool instanceof ComputerTool
-    ) as ComputerTool | undefined;
-
+    let x = 0;
     for (const output of response.output) {
       if (this.isResponseOutputMessage(output)) {
-        const assistantMessage: ResponseOutputMessage = {
-          ...output,
-          role: 'assistant',
-        };
-        items.push(new MessageOutputItem(agent, assistantMessage));
+        items.push(new MessageOutputItem(agent, output));
       } else if (this.isResponseFileSearchToolCall(output)) {
         items.push(new ToolCallItem(agent, output));
         toolsUsed.push('file_search');
@@ -486,88 +417,47 @@ export class RunImpl {
           attachErrorToCurrentSpan(
             new SpanError({
               message: 'Computer tool not found',
-              data: output,
+              data: {},
             })
           );
-          throw new ModelBehaviorError(
-            'Model produced computer action without a computer tool.'
-          );
+          throw new ModelBehaviorError('Model produced computer action without a computer tool.');
         }
 
         computerActions.push(new ToolRunComputerAction(output, computerTool));
-      } else if (this.isResponseFunctionToolCall(output)) {
-        toolsUsed.push(output.name);
-
-        // Handoffs
-        if (handoffMap.has(output.name)) {
-          items.push(new HandoffCallItem(agent, output));
-          const handoff = new ToolRunHandoff(
-            handoffMap.get(output.name)!,
-            output
-          );
-          runHandoffs.push(handoff);
-        } else {
-          // Regular function tool call OR Hosted Tool Call
-          if (functionMap.has(output.name)) {
-            // It's a user-defined FunctionTool
-            items.push(new ToolCallItem(agent, output));
-            functions.push(
-              new ToolRunFunction(output, functionMap.get(output.name)!)
-            );
-          } else if (
-            // Check if it's a known hosted tool type that doesn't need local execution
-            (output.name === 'web_search_preview' &&
-              allTools.some((tool) => tool instanceof WebSearchTool)) ||
-            // Add similar checks for file_search or computer_use if they might arrive here
-            (output.name === 'file_search' &&
-              allTools.some((tool) => tool instanceof FileSearchTool)) ||
-            (output.name === 'computer_use_preview' &&
-              allTools.some((tool) => tool instanceof ComputerTool))
-            // Note: The specific type guards (isResponseFileSearchToolCall, etc.) might handle these cases earlier,
-            // making these checks potentially redundant but safe.
-          ) {
-            // It's a HOSTED tool call (like web_search). Just record the call.
-            // No need to add to the `functions` list for execution.
-            items.push(new ToolCallItem(agent, output));
-            logger.debug(`Recognized hosted tool call: ${output.name}`);
-          } else {
-            // If it's not a handoff, not a known FunctionTool, and not a recognized Hosted Tool,
-            // THEN it's truly a missing tool.
-            console.error('Tool lookup failed!');
-            console.error('Requested tool name:', output.name);
-            console.error(
-              'Available FunctionTool names (Map keys):',
-              Array.from(functionMap.keys())
-            );
-            console.error(
-              'All provided tools:',
-              allTools
-                .map((t) => t.constructor.name + '(' + t.name + ')')
-                .join(', ')
-            ); // Log all tool names/types
-            attachErrorToCurrentSpan(
-              new SpanError({
-                message: 'Tool not found',
-                data: { toolName: output.name },
-              })
-            );
-            throw new ModelBehaviorError(
-              `Tool ${output.name} not found in agent ${agent.name}`
-            );
-          }
-        }
-      } else {
+      } else if (!this.isResponseFunctionToolCall(output)) {
         logger.warning(`Unexpected output type, ignoring: ${typeof output}`);
+        continue;
+      }
+
+      // At this point we know it's a function tool call
+      if (!this.isResponseFunctionToolCall(output)) {
+        continue;
+      }
+
+      toolsUsed.push(output.name);
+
+      // Handoffs
+      if (handoffMap.has(output.name)) {
+        items.push(new HandoffCallItem(agent, output));
+        const handoff = new ToolRunHandoff(handoffMap.get(output.name)!, output);
+        runHandoffs.push(handoff);
+      } else {
+        // Regular function tool call
+        if (!functionMap.has(output.name)) {
+          attachErrorToCurrentSpan(
+            new SpanError({
+              message: 'Tool not found',
+              data: { toolName: output.name },
+            })
+          );
+          throw new ModelBehaviorError(`Tool ${output.name} not found in agent ${agent.name}`);
+        }
+        items.push(new ToolCallItem(agent, output));
+        functions.push(new ToolRunFunction(output, functionMap.get(output.name)!));
       }
     }
 
-    return new ProcessedResponse(
-      items,
-      runHandoffs,
-      functions,
-      computerActions,
-      toolsUsed
-    );
+    return new ProcessedResponse(items, runHandoffs, functions, computerActions, toolsUsed);
   }
 
   /**
@@ -586,10 +476,7 @@ export class RunImpl {
     contextWrapper: RunContextWrapper<TContext>;
     config: RunConfig;
   }): Promise<FunctionToolResult[]> {
-    async function runSingleTool(
-      funcTool: FunctionTool,
-      toolCall: ResponseFunctionToolCall
-    ): Promise<any> {
+    async function runSingleTool(funcTool: FunctionTool, toolCall: ResponseFunctionToolCall): Promise<any> {
       const spanFn = functionSpan(funcTool.name);
 
       if (config.traceIncludeSensitiveData) {
@@ -601,9 +488,7 @@ export class RunImpl {
 
         await Promise.all([
           hooks.onToolStart(contextWrapper, agent, funcTool),
-          agent.hooks
-            ? agent.hooks.onToolStart(contextWrapper, agent, funcTool)
-            : noopCoroutine(),
+          agent.hooks ? agent.hooks.onToolStart(contextWrapper, agent, funcTool) : noopCoroutine(),
         ]);
 
         const result = await funcTool.on_invoke_tool({
@@ -613,9 +498,7 @@ export class RunImpl {
 
         await Promise.all([
           hooks.onToolEnd(contextWrapper, agent, funcTool, result),
-          agent.hooks
-            ? agent.hooks.onToolEnd(contextWrapper, agent, funcTool, result)
-            : noopCoroutine(),
+          agent.hooks ? agent.hooks.onToolEnd(contextWrapper, agent, funcTool, result) : noopCoroutine(),
         ]);
 
         if (config.traceIncludeSensitiveData) {
@@ -640,22 +523,15 @@ export class RunImpl {
       }
     }
 
-    const tasks = toolRuns.map((toolRun) =>
-      runSingleTool(toolRun.functionTool, toolRun.toolCall)
-    );
+    const tasks = toolRuns.map(toolRun => runSingleTool(toolRun.functionTool, toolRun.toolCall));
     const results = await Promise.all(tasks);
     return toolRuns.map((toolRun, index) => {
       const result = results[index];
-      const output =
-        typeof result === 'object' ? JSON.stringify(result) : String(result);
+      const output = typeof result === 'object' ? JSON.stringify(result) : String(result);
       return new FunctionToolResult({
         tool: toolRun.functionTool,
         output: result,
-        run_item: new ToolCallOutputItem(
-          agent,
-          ItemHelpers.toolCallOutputItem(toolRun.toolCall, output),
-          result
-        ),
+        run_item: new ToolCallOutputItem(agent, ItemHelpers.toolCallOutputItem(toolRun.toolCall, output), result),
       });
     });
   }
@@ -725,7 +601,7 @@ export class RunImpl {
         ...runHandoffs
           .slice(1)
           .map(
-            (handoff) =>
+            handoff =>
               new ToolCallOutputItem(
                 agent,
                 ItemHelpers.toolCallOutputItem(handoff.toolCall, outputMessage),
@@ -742,17 +618,12 @@ export class RunImpl {
       spanHandoff.start(true);
 
       const handoff = actualHandoff.handoff;
-      const newAgent: Agent<any> = await handoff.onInvokeHandoff(
-        contextWrapper,
-        actualHandoff.toolCall.arguments
-      );
+      const newAgent: Agent<any> = await handoff.onInvokeHandoff(contextWrapper, actualHandoff.toolCall.arguments);
 
       spanHandoff.spanData.toAgent = newAgent.name;
 
       if (multipleHandoffs) {
-        const requestedAgents = runHandoffs.map(
-          (handoff) => handoff.handoff.agentName
-        );
+        const requestedAgents = runHandoffs.map(handoff => handoff.handoff.agentName);
         spanHandoff.setError(
           new SpanError({
             message: 'Multiple handoffs requested',
@@ -765,10 +636,7 @@ export class RunImpl {
       newStepItems.push(
         new HandoffOutputItem(
           agent,
-          ItemHelpers.toolCallOutputItem(
-            actualHandoff.toolCall,
-            handoff.getTransferMessage(newAgent)
-          ),
+          ItemHelpers.toolCallOutputItem(actualHandoff.toolCall, handoff.getTransferMessage(newAgent)),
           agent,
           newAgent
         )
@@ -777,15 +645,11 @@ export class RunImpl {
       // Execute handoff hooks
       await Promise.all([
         hooks.onHandoff(contextWrapper, agent, newAgent),
-        agent.hooks
-          ? agent.hooks.onHandoff(contextWrapper, newAgent, agent)
-          : noopCoroutine(),
+        agent.hooks ? agent.hooks.onHandoff(contextWrapper, newAgent, agent) : noopCoroutine(),
       ]);
 
       // If there's an input filter, filter the input for the next agent
-      const inputFilter =
-        handoff.inputFilter ||
-        (runConfig ? runConfig.handoffInputFilter : null);
+      const inputFilter = handoff.inputFilter || (runConfig ? runConfig.handoffInputFilter : null);
 
       if (inputFilter) {
         logger.debug('Filtering inputs for handoff');
@@ -819,9 +683,7 @@ export class RunImpl {
         }
 
         originalInput =
-          typeof filtered.inputHistory === 'string'
-            ? filtered.inputHistory
-            : Array.from(filtered.inputHistory);
+          typeof filtered.inputHistory === 'string' ? filtered.inputHistory : Array.from(filtered.inputHistory);
 
         preStepItems = Array.from(filtered.preHandoffItems);
         newStepItems = Array.from(filtered.newItems);
@@ -893,9 +755,7 @@ export class RunImpl {
   ): Promise<void> {
     await Promise.all([
       hooks.onAgentEnd(contextWrapper, agent, finalOutput),
-      agent.hooks
-        ? agent.hooks.onEnd(contextWrapper, agent, finalOutput)
-        : noopCoroutine(),
+      agent.hooks ? agent.hooks.onEnd(contextWrapper, agent, finalOutput) : noopCoroutine(),
     ]);
   }
 
@@ -1015,10 +875,7 @@ export class RunImpl {
         isFinalOutput: true,
         finalOutput: toolResults[0].output,
       };
-    } else if (
-      typeof agent.tool_use_behavior === 'object' &&
-      agent.tool_use_behavior !== null
-    ) {
+    } else if (typeof agent.tool_use_behavior === 'object' && agent.tool_use_behavior !== null) {
       const names = agent.tool_use_behavior.stop_at_tool_names || [];
       for (const toolResult of toolResults) {
         if (names.includes(toolResult.tool.name)) {
@@ -1043,51 +900,163 @@ export class RunImpl {
     }
 
     logger.error(`Invalid tool_use_behavior: ${agent.tool_use_behavior}`);
-    throw new UserError(
-      `Invalid tool_use_behavior: ${agent.tool_use_behavior}`
-    );
+    throw new UserError(`Invalid tool_use_behavior: ${agent.tool_use_behavior}`);
   }
 
   // Type guards for response types
-  private static isResponseOutputMessage(
-    output: any
-  ): output is ResponseOutputMessage {
-    return (
-      output &&
-      (typeof output.content === 'string' || Array.isArray(output.content))
-    );
+  private static isResponseOutputMessage(output: any): output is ResponseOutputMessage {
+    try {
+      const schema: z.ZodType<ResponseOutputMessage> = z.object({
+        id: z.string(),
+        content: z.array(z.any()), // Array of ResponseOutputText | ResponseOutputRefusal
+        role: z.literal('assistant'),
+        status: z.enum(['in_progress', 'completed', 'incomplete']),
+        type: z.literal('message'),
+      });
+      schema.parse(output);
+      return true;
+    } catch (error) {
+      return false;
+    }
   }
 
-  private static isResponseFileSearchToolCall(
-    output: any
-  ): output is ResponseFileSearchToolCall {
-    return output && output.type === 'file_search_tool_call';
+  private static isResponseFileSearchToolCall(output: any): output is ResponseFileSearchToolCall {
+    try {
+      const schema: z.ZodType<ResponseFileSearchToolCall> = z.object({
+        id: z.string(),
+        queries: z.array(z.string()),
+        status: z.enum(['in_progress', 'searching', 'completed', 'incomplete', 'failed']),
+        type: z.literal('file_search_call'),
+        results: z.array(z.any()).nullable().optional(),
+      });
+      schema.parse(output);
+      return true;
+    } catch (error) {
+      return false;
+    }
   }
 
-  private static isResponseFunctionWebSearch(
-    output: any
-  ): output is ResponseFunctionWebSearch {
-    return output && output.type === 'web_search';
+  private static isResponseFunctionWebSearch(output: any): output is ResponseFunctionWebSearch {
+    try {
+      const schema: z.ZodType<ResponseFunctionWebSearch> = z.object({
+        id: z.string(),
+        status: z.enum(['in_progress', 'searching', 'completed', 'failed']),
+        type: z.literal('web_search_call'),
+      });
+
+      schema.parse(output);
+      return true;
+    } catch (error) {
+      return false;
+    }
   }
 
-  private static isResponseReasoningItem(
-    output: any
-  ): output is ResponseReasoningItem {
-    return output && output.type === 'reasoning';
+  private static isResponseReasoningItem(output: any): output is ResponseReasoningItem {
+    try {
+      const schema: z.ZodType<ResponseReasoningItem> = z.object({
+        id: z.string(),
+        summary: z.array(
+          z.object({
+            text: z.string(),
+            type: z.literal('summary_text'),
+          })
+        ),
+        type: z.literal('reasoning'),
+        status: z.enum(['in_progress', 'completed', 'incomplete']).optional(),
+      });
+
+      schema.parse(output);
+      return true;
+    } catch (error) {
+      return false;
+    }
   }
 
-  private static isResponseComputerToolCall(
-    output: any
-  ): output is ResponseComputerToolCall {
-    return output && output.type === 'computer_tool_call';
+  private static isResponseComputerToolCall(output: any): output is ResponseComputerToolCall {
+    try {
+      const schema: z.ZodType<ResponseComputerToolCall> = z.object({
+        id: z.string(),
+        type: z.literal('computer_call'),
+        call_id: z.string(),
+        action: z.union([
+          z.object({
+            type: z.literal('click'),
+            button: z.enum(['left', 'right', 'wheel', 'back', 'forward']),
+            x: z.number(),
+            y: z.number(),
+          }),
+          z.object({
+            type: z.literal('double_click'),
+            x: z.number(),
+            y: z.number(),
+          }),
+          z.object({
+            type: z.literal('drag'),
+            path: z.array(
+              z.object({
+                x: z.number(),
+                y: z.number(),
+              })
+            ),
+          }),
+          z.object({
+            type: z.literal('keypress'),
+            keys: z.array(z.string()),
+          }),
+          z.object({
+            type: z.literal('move'),
+            x: z.number(),
+            y: z.number(),
+          }),
+          z.object({
+            type: z.literal('screenshot'),
+          }),
+          z.object({
+            type: z.literal('scroll'),
+            scroll_x: z.number(),
+            scroll_y: z.number(),
+            x: z.number(),
+            y: z.number(),
+          }),
+          z.object({
+            type: z.literal('type'),
+            text: z.string(),
+          }),
+          z.object({
+            type: z.literal('wait'),
+          }),
+        ]),
+        status: z.enum(['in_progress', 'completed', 'incomplete']),
+        pending_safety_checks: z.array(
+          z.object({
+            id: z.string(),
+            code: z.string(),
+            message: z.string(),
+          }) as z.ZodType<PendingSafetyCheck>
+        ),
+      });
+      schema.parse(output);
+      return true;
+    } catch (error) {
+      return false;
+    }
   }
 
-  private static isResponseFunctionToolCall(
-    output: any
-  ): output is ResponseFunctionToolCall {
-    return (
-      output && (output.type === 'function' || output.type === 'function_call')
-    );
+  private static isResponseFunctionToolCall(output: any): output is ResponseFunctionToolCall {
+    try {
+      const schema: z.ZodType<ResponseFunctionToolCall> = z.object({
+        arguments: z.string(),
+        call_id: z.string(),
+        name: z.string(),
+        type: z.literal('function_call'),
+        id: z.string().optional(),
+        status: z.enum(['in_progress', 'completed', 'incomplete']).optional(),
+      });
+      schema.parse(output);
+      return true;
+    } catch (error) {
+      return false;
+    }
   }
 }
 
@@ -1108,13 +1077,7 @@ export class TraceCtxManager {
   enter(): TraceCtxManager {
     const currentTrace = getCurrentTrace();
     if (!currentTrace) {
-      this.trace = trace(
-        this.workflowName,
-        this.traceId,
-        this.groupId,
-        this.metadata,
-        this.disabled
-      );
+      this.trace = trace(this.workflowName, this.traceId, this.groupId, this.metadata, this.disabled);
       this.trace.start(true);
     }
 
@@ -1155,23 +1118,14 @@ export class ComputerAction {
 
     await Promise.all([
       hooks.onToolStart(contextWrapper, agent, action.computerTool),
-      agent.hooks
-        ? agent.hooks.onToolStart(contextWrapper, agent, action.computerTool)
-        : noopCoroutine(),
+      agent.hooks ? agent.hooks.onToolStart(contextWrapper, agent, action.computerTool) : noopCoroutine(),
     ]);
 
     const output = await outputFunc;
 
     await Promise.all([
       hooks.onToolEnd(contextWrapper, agent, action.computerTool, output),
-      agent.hooks
-        ? agent.hooks.onToolEnd(
-            contextWrapper,
-            agent,
-            action.computerTool,
-            output
-          )
-        : noopCoroutine(),
+      agent.hooks ? agent.hooks.onToolEnd(contextWrapper, agent, action.computerTool, output) : noopCoroutine(),
     ]);
 
     // TODO: don't send a screenshot every single time, use references
@@ -1193,10 +1147,7 @@ export class ComputerAction {
   /**
    * Get screenshot from sync computer
    */
-  static async getScreenshotSync(
-    computer: Computer,
-    toolCall: ResponseComputerToolCall
-  ): Promise<string> {
+  static async getScreenshotSync(computer: Computer, toolCall: ResponseComputerToolCall): Promise<string> {
     const action = toolCall.action;
 
     if (this.isActionClick(action)) {
@@ -1204,7 +1155,7 @@ export class ComputerAction {
     } else if (this.isActionDoubleClick(action)) {
       computer.doubleClick(action.x, action.y);
     } else if (this.isActionDrag(action)) {
-      computer.drag(action.path.map((p) => [p.x, p.y]));
+      computer.drag(action.path.map(p => [p.x, p.y]));
     } else if (this.isActionKeypress(action)) {
       computer.keypress(action.keys);
     } else if (this.isActionMove(action)) {
@@ -1225,10 +1176,7 @@ export class ComputerAction {
   /**
    * Get screenshot from async computer
    */
-  static async getScreenshotAsync(
-    computer: AsyncComputer,
-    toolCall: ResponseComputerToolCall
-  ): Promise<string> {
+  static async getScreenshotAsync(computer: AsyncComputer, toolCall: ResponseComputerToolCall): Promise<string> {
     const action = toolCall.action;
 
     if (this.isActionClick(action)) {
@@ -1236,7 +1184,7 @@ export class ComputerAction {
     } else if (this.isActionDoubleClick(action)) {
       await computer.doubleClick(action.x, action.y);
     } else if (this.isActionDrag(action)) {
-      await computer.drag(action.path.map((p) => [p.x, p.y]));
+      await computer.drag(action.path.map(p => [p.x, p.y]));
     } else if (this.isActionKeypress(action)) {
       await computer.keypress(action.keys);
     } else if (this.isActionMove(action)) {
@@ -1244,12 +1192,7 @@ export class ComputerAction {
     } else if (this.isActionScreenshot(action)) {
       await computer.screenshot();
     } else if (this.isActionScroll(action)) {
-      await computer.scroll(
-        action.x,
-        action.y,
-        action.scroll_x,
-        action.scroll_y
-      );
+      await computer.scroll(action.x, action.y, action.scroll_x, action.scroll_y);
     } else if (this.isActionType(action)) {
       await computer.type(action.text);
     } else if (this.isActionWait(action)) {

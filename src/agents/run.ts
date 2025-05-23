@@ -8,19 +8,9 @@ import {
   ModelBehaviorError,
   OutputGuardrailTripwireTriggered,
 } from './exceptions';
-import {
-  InputGuardrail,
-  InputGuardrailResult,
-  OutputGuardrail,
-  OutputGuardrailResult,
-} from './guardrails';
+import { InputGuardrail, InputGuardrailResult, OutputGuardrail, OutputGuardrailResult } from './guardrails';
 import { Handoff, HandoffInputFilter, handoff } from './handoffs';
-import {
-  ItemHelpers,
-  ModelResponse,
-  RunItem,
-  TResponseInputItem,
-} from './items';
+import { ItemHelpers, ModelResponse, RunItem, TResponseInputItem } from './items';
 import { RunHooks } from './lifecycle';
 import { logger } from './logger';
 import { ModelSettings } from './models/model-settings';
@@ -51,11 +41,7 @@ import {
 } from './_run-impl';
 import { OpenAIProvider } from './models/openai-provider';
 import { Stream } from 'openai/streaming';
-type ResponseCompletedEvent = InstanceType<typeof Stream> extends AsyncIterable<
-  infer T
->
-  ? T
-  : any; // Infer event type if possible
+type ResponseCompletedEvent = InstanceType<typeof Stream> extends AsyncIterable<infer T> ? T : any; // Infer event type if possible
 import { Usage } from './usage';
 import { MCPUtil } from './mcp';
 
@@ -66,9 +52,7 @@ declare module './result' {
     _input_guardrails_task?: Promise<void> | null;
     _output_guardrails_task?: Promise<OutputGuardrailResult[]> | null;
     _event_queue: AsyncQueue<StreamEvent | QueueCompleteSentinel>;
-    _input_guardrail_queue: AsyncQueue<
-      InputGuardrailResult | QueueCompleteSentinel
-    >;
+    _input_guardrail_queue: AsyncQueue<InputGuardrailResult | QueueCompleteSentinel>;
     _current_agent_output_schema?: AgentOutputSchema | null;
   }
 }
@@ -179,12 +163,7 @@ export class Runner {
       previousResponseId?: string;
     } = {}
   ): Promise<RunResult> {
-    const {
-      context,
-      maxTurns = DEFAULT_MAX_TURNS,
-      hooks = new RunHooks<any>(),
-      runConfig = new RunConfig(),
-    } = options;
+    const { context, maxTurns = DEFAULT_MAX_TURNS, hooks = new RunHooks<any>(), runConfig = new RunConfig() } = options;
 
     const toolUseTracker = new AgentToolUseTracker();
 
@@ -224,25 +203,16 @@ export class Runner {
         while (true) {
           // Start an agent span if we don't have one
           if (!currentSpan) {
-            const handoffNames = Runner._getHandoffs(currentAgent).map(
-              (h) => h.agentName
-            );
+            const handoffNames = Runner._getHandoffs(currentAgent).map(h => h.agentName);
             const outputSchema = Runner._getOutputSchema(currentAgent);
-            const outputTypeName = outputSchema
-              ? outputSchema.outputTypeName
-              : 'str';
+            const outputTypeName = outputSchema ? outputSchema.outputTypeName : 'str';
 
-            currentSpan = agentSpan(
-              currentAgent.name,
-              handoffNames,
-              null,
-              outputTypeName
-            );
+            currentSpan = agentSpan(currentAgent.name, handoffNames, null, outputTypeName);
             currentSpan.start(true);
 
             allTools = await Runner._getAllTools(currentAgent); // Fetch tools inside the loop
             if (currentSpan) {
-              currentSpan.spanData.tools = allTools.map((t) => t.name);
+              currentSpan.spanData.tools = allTools.map(t => t.name);
             }
           }
 
@@ -259,19 +229,14 @@ export class Runner {
             throw new MaxTurnsExceeded(`Max turns (${maxTurns}) exceeded`);
           }
 
-          logger.debug(
-            `Running agent ${currentAgent.name} (turn ${currentTurn})`
-          );
+          logger.debug(`Running agent ${currentAgent.name} (turn ${currentTurn})`);
 
           let turnResult: SingleStepResult;
           if (currentTurn === 1) {
             // Run input guardrails for the first turn only
             inputGuardrailResults = await Runner._runInputGuardrails(
               startingAgent,
-              [
-                ...(startingAgent.input_guardrails || []),
-                ...(runConfig.inputGuardrails || []),
-              ],
+              [...(startingAgent.input_guardrails || []), ...(runConfig.inputGuardrails || [])],
               JSON.parse(JSON.stringify(input)), // Deep copy
               contextWrapper,
               currentSpan // Pass current span for error reporting
@@ -295,8 +260,7 @@ export class Runner {
             if (!allTools.length) {
               // Check if allTools needs refreshing (e.g., after handoff)
               allTools = await Runner._getAllTools(currentAgent);
-              if (currentSpan)
-                currentSpan.spanData.tools = allTools.map((t) => t.name);
+              if (currentSpan) currentSpan.spanData.tools = allTools.map(t => t.name);
             }
 
             turnResult = await Runner._runSingleTurn({
@@ -321,10 +285,7 @@ export class Runner {
 
           if (turnResult.nextStep instanceof NextStepFinalOutput) {
             const outputGuardrailResults = await Runner._runOutputGuardrails(
-              [
-                ...(currentAgent.output_guardrails || []),
-                ...(runConfig.outputGuardrails || []),
-              ],
+              [...(currentAgent.output_guardrails || []), ...(runConfig.outputGuardrails || [])],
               currentAgent,
               turnResult.nextStep.output, // Corrected argument
               contextWrapper,
@@ -350,13 +311,9 @@ export class Runner {
             allTools = []; // Reset tools so they are fetched next turn
           } else if (turnResult.nextStep instanceof NextStepRunAgain) {
           } else {
-            const errorMsg = `Unknown next step type: ${
-              (turnResult.nextStep as any)?.constructor?.name
-            }`;
+            const errorMsg = `Unknown next step type: ${(turnResult.nextStep as any)?.constructor?.name}`;
             if (currentSpan) {
-              currentSpan.setError(
-                new SpanError({ message: errorMsg, data: {} })
-              );
+              currentSpan.setError(new SpanError({ message: errorMsg, data: {} }));
             }
             throw new AgentsException(errorMsg);
           }
@@ -400,30 +357,24 @@ export class Runner {
       // However, directly using async/await is the standard Node.js practice.
       // This placeholder avoids complex dependencies for the example.
       // A truly robust solution would require more complex handling or external libs.
-      console.warn(
-        'runSync is not robustly implemented for all Node.js environments. Prefer async run().'
-      );
+      console.warn('runSync is not robustly implemented for all Node.js environments. Prefer async run().');
       // Attempt a basic sync wait (not recommended for production)
       let result: RunResult | undefined;
       let error: Error | undefined;
       runner()
-        .then((res) => (result = res))
-        .catch((err) => (error = err));
+        .then(res => (result = res))
+        .catch(err => (error = err));
       // The use of require('deasync') makes this code potentially problematic
       // and environment-dependent. It's kept here to reflect the previous state
       // but should ideally be removed in favor of an async-only approach.
       try {
         require('deasync').loopWhile(() => !result && !error);
       } catch (deasyncError) {
-        if (
-          (deasyncError as NodeJS.ErrnoException).code === 'MODULE_NOT_FOUND'
-        ) {
+        if ((deasyncError as NodeJS.ErrnoException).code === 'MODULE_NOT_FOUND') {
           console.error(
             "The 'deasync' package is required for runSync. Please install it or use the async run() method."
           );
-          throw new Error(
-            "runSync requires the optional 'deasync' package. Please install it or use async run()."
-          );
+          throw new Error("runSync requires the optional 'deasync' package. Please install it or use async run().");
         } else {
           throw deasyncError; // Re-throw other errors from deasync
         }
@@ -451,12 +402,7 @@ export class Runner {
       previousResponseId?: string;
     } = {}
   ): RunResultStreaming {
-    const {
-      context,
-      maxTurns = DEFAULT_MAX_TURNS,
-      hooks = new RunHooks<any>(),
-      runConfig = new RunConfig(),
-    } = options;
+    const { context, maxTurns = DEFAULT_MAX_TURNS, hooks = new RunHooks<any>(), runConfig = new RunConfig() } = options;
 
     // Create a new trace if one doesn't exist
     const currentTrace = getCurrentTrace();
@@ -528,9 +474,7 @@ export class Runner {
     if (!agent.handoffs) return [];
 
     // Ensure handoffs is always an array
-    const handoffItems = Array.isArray(agent.handoffs)
-      ? agent.handoffs
-      : [agent.handoffs];
+    const handoffItems = Array.isArray(agent.handoffs) ? agent.handoffs : [agent.handoffs];
 
     for (const handoffItem of handoffItems) {
       if (handoffItem instanceof Handoff) {
@@ -552,10 +496,7 @@ export class Runner {
     // If agent.tools and agent.mcp_servers are readily available properties,
     // this might not need to be async. Adjust based on Agent implementation.
     // For now, matching the Python signature which suggests potential async operations.
-    const tools = [
-      ...(agent.tools || []),
-      ...(await MCPUtil.getFunctionTools(agent.mcp_servers)),
-    ];
+    const tools = [...(agent.tools || []), ...(await MCPUtil.getFunctionTools(agent.mcp_servers))];
     // Example: If agent had an async method:
     // const dynamicTools = await agent.getDynamicTools();
     // return [...tools, ...dynamicTools];
@@ -591,7 +532,7 @@ export class Runner {
       return [];
     }
 
-    const guardrailPromises = guardrails.map((guardrail) =>
+    const guardrailPromises = guardrails.map(guardrail =>
       RunImpl.runSingleInputGuardrail(agent, guardrail, input, context)
     );
 
@@ -627,8 +568,7 @@ export class Runner {
         logger.error(`Error running input guardrail: ${result.reason}`);
         if (span) {
           // Use passed span
-          const guardrailName =
-            (result as any).reason?.guardrail?.get_name?.() ?? 'unknown'; // Safely access name
+          const guardrailName = (result as any).reason?.guardrail?.get_name?.() ?? 'unknown'; // Safely access name
           span.setError(
             new SpanError({
               message: `Input guardrail failed: ${result.reason}`,
@@ -660,7 +600,7 @@ export class Runner {
       return [];
     }
 
-    const guardrailPromises = guardrails.map((guardrail) =>
+    const guardrailPromises = guardrails.map(guardrail =>
       RunImpl.runSingleOutputGuardrail(guardrail, agent, agentOutput, context)
     );
 
@@ -694,8 +634,7 @@ export class Runner {
         logger.error(`Error running output guardrail: ${result.reason}`);
         if (span) {
           // Use passed span
-          const guardrailName =
-            (result as any).reason?.guardrail?.get_name?.() ?? 'unknown'; // Safely access name
+          const guardrailName = (result as any).reason?.guardrail?.get_name?.() ?? 'unknown'; // Safely access name
           span.setError(
             new SpanError({
               message: `Output guardrail failed: ${result.reason}`,
@@ -743,9 +682,7 @@ export class Runner {
     if (shouldRunAgentStartHooks) {
       await Promise.all([
         hooks.onAgentStart(contextWrapper, agent),
-        agent.hooks
-          ? agent.hooks.onStart(contextWrapper, agent)
-          : noopCoroutine(),
+        agent.hooks ? agent.hooks.onStart(contextWrapper, agent) : noopCoroutine(),
       ]);
     }
 
@@ -753,7 +690,7 @@ export class Runner {
     const outputSchema = Runner._getOutputSchema(agent);
     const handoffs = Runner._getHandoffs(agent);
     const currentInput = ItemHelpers.inputToNewInputList(originalInput); // Use a separate variable
-    currentInput.push(...generatedItems.map((item) => item.toInputItem()));
+    currentInput.push(...generatedItems.map(item => item.toInputItem()));
 
     const newResponse = await Runner._getNewResponse(
       agent,
@@ -803,19 +740,13 @@ export class Runner {
   ): Promise<ModelResponse> {
     const model = Runner._getModel(agent, runConfig);
     const modelSettings = agent.model_settings.resolve(runConfig.modelSettings);
-    let resolvedSettings = RunImpl.maybeResetToolChoice(
-      agent,
-      toolUseTracker,
-      modelSettings
-    );
+    let resolvedSettings = RunImpl.maybeResetToolChoice(agent, toolUseTracker, modelSettings);
 
     // If tools are available and tool_choice isn't explicitly set (to e.g., 'none' or a specific tool),
     // default to 'auto' to encourage the model to use them.
     if (allTools.length > 0 && resolvedSettings.tool_choice === undefined) {
       // Use `new ModelSettings` for the resolve method
-      resolvedSettings = resolvedSettings.resolve(
-        new ModelSettings({ tool_choice: 'auto' })
-      );
+      resolvedSettings = resolvedSettings.resolve(new ModelSettings({ tool_choice: 'auto' }));
       logger.debug('Setting tool_choice to auto as tools are available.');
     }
 
@@ -826,10 +757,7 @@ export class Runner {
       allTools,
       outputSchema,
       handoffs,
-      getModelTracingImpl(
-        runConfig.tracingDisabled ?? false,
-        runConfig.traceIncludeSensitiveData ?? true
-      ),
+      getModelTracingImpl(runConfig.tracingDisabled ?? false, runConfig.traceIncludeSensitiveData ?? true),
       previousResponseId
     );
 
@@ -916,18 +844,14 @@ export class Runner {
 
     try {
       // --- Input Guardrails (Run once at the start) ---
-      streamedResult._input_guardrails_task =
-        Runner._runInputGuardrailsWithQueue(
-          startingAgent,
-          [
-            ...(startingAgent.input_guardrails || []),
-            ...(runConfig.inputGuardrails || []),
-          ],
-          JSON.parse(JSON.stringify(startingInput)), // Use initial input
-          contextWrapper,
-          streamedResult,
-          null // Pass null for span initially
-        );
+      streamedResult._input_guardrails_task = Runner._runInputGuardrailsWithQueue(
+        startingAgent,
+        [...(startingAgent.input_guardrails || []), ...(runConfig.inputGuardrails || [])],
+        JSON.parse(JSON.stringify(startingInput)), // Use initial input
+        contextWrapper,
+        streamedResult,
+        null // Pass null for span initially
+      );
       try {
         await streamedResult._input_guardrails_task; // Wait for guardrails before starting turns
       } catch (e) {
@@ -939,9 +863,7 @@ export class Runner {
         } else {
           // Handle unexpected errors during guardrail execution
           const error = e instanceof Error ? e : new Error(String(e));
-          logger.error(
-            `Unexpected error during input guardrail execution: ${error.message}`
-          );
+          logger.error(`Unexpected error during input guardrail execution: ${error.message}`);
           // Cannot set error on currentSpan as it doesn't exist yet
           await streamedResult.setError(error);
           streamedResult._event_queue.put_nowait(QUEUE_COMPLETE_SENTINEL);
@@ -954,33 +876,22 @@ export class Runner {
 
         // Start an agent span if we don't have one
         if (!currentSpan) {
-          const handoffNames = Runner._getHandoffs(currentAgent).map(
-            (h) => h.agentName
-          );
+          const handoffNames = Runner._getHandoffs(currentAgent).map(h => h.agentName);
           const outputSchema = Runner._getOutputSchema(currentAgent);
-          const outputTypeName = outputSchema
-            ? outputSchema.outputTypeName
-            : 'str';
+          const outputTypeName = outputSchema ? outputSchema.outputTypeName : 'str';
 
-          currentSpan = agentSpan(
-            currentAgent.name,
-            handoffNames,
-            null,
-            outputTypeName
-          );
+          currentSpan = agentSpan(currentAgent.name, handoffNames, null, outputTypeName);
           currentSpan.start(true);
 
           const allTools = await Runner._getAllTools(currentAgent);
           if (currentSpan) {
-            currentSpan.spanData.tools = allTools.map((t) => t.name);
+            currentSpan.spanData.tools = allTools.map(t => t.name);
           }
         }
 
         streamedResult.currentTurn++;
         if (streamedResult.currentTurn > maxTurns) {
-          const error = new MaxTurnsExceeded(
-            `Max turns (${maxTurns}) exceeded`
-          );
+          const error = new MaxTurnsExceeded(`Max turns (${maxTurns}) exceeded`);
           if (currentSpan) {
             currentSpan.setError(
               new SpanError({
@@ -994,9 +905,7 @@ export class Runner {
           break; // Exit loop
         }
 
-        logger.debug(
-          `Running agent ${currentAgent.name} (turn ${streamedResult.currentTurn})`
-        );
+        logger.debug(`Running agent ${currentAgent.name} (turn ${streamedResult.currentTurn})`);
 
         try {
           // --- Run Single Turn Streamed ---
@@ -1025,22 +934,17 @@ export class Runner {
           // --- Process Next Step ---
           if (turnResult.nextStep instanceof NextStepFinalOutput) {
             // Run output guardrails asynchronously
-            streamedResult._output_guardrails_task =
-              Runner._runOutputGuardrails(
-                [
-                  ...(currentAgent.output_guardrails || []),
-                  ...(runConfig.outputGuardrails || []),
-                ],
-                currentAgent,
-                turnResult.nextStep.output,
-                contextWrapper,
-                currentSpan
-              );
+            streamedResult._output_guardrails_task = Runner._runOutputGuardrails(
+              [...(currentAgent.output_guardrails || []), ...(runConfig.outputGuardrails || [])],
+              currentAgent,
+              turnResult.nextStep.output,
+              contextWrapper,
+              currentSpan
+            );
 
             try {
               // Wait for guardrails to complete for the final output
-              const outputGuardrailResults =
-                await streamedResult._output_guardrails_task;
+              const outputGuardrailResults = await streamedResult._output_guardrails_task;
               streamedResult.outputGuardrailResults = outputGuardrailResults; // Store results
 
               // Update the final output and complete
@@ -1058,9 +962,7 @@ export class Runner {
               } else {
                 // Handle unexpected errors
                 const error = e instanceof Error ? e : new Error(String(e));
-                logger.error(
-                  `Unexpected error during output guardrail execution: ${error.message}`
-                );
+                logger.error(`Unexpected error during output guardrail execution: ${error.message}`);
                 // Check currentSpan before using it
                 if (currentSpan && typeof currentSpan.setError === 'function') {
                   currentSpan.setError(
@@ -1090,14 +992,10 @@ export class Runner {
             // Continue the loop with updated state (originalInput, generatedItems)
           } else {
             const error = new AgentsException(
-              `Unknown next step type: ${
-                (turnResult.nextStep as any)?.constructor?.name
-              }`
+              `Unknown next step type: ${(turnResult.nextStep as any)?.constructor?.name}`
             );
             if (currentSpan) {
-              currentSpan.setError(
-                new SpanError({ message: error.message, data: {} })
-              );
+              currentSpan.setError(new SpanError({ message: error.message, data: {} }));
             }
             await streamedResult.setError(error);
             streamedResult._event_queue.put_nowait(QUEUE_COMPLETE_SENTINEL);
@@ -1136,7 +1034,6 @@ export class Runner {
       }
       await streamedResult.setError(err);
       streamedResult.isComplete = true;
-      console.log('NOluTOR OLum SİKERİM YA---', streamedResult);
       streamedResult._event_queue.put_nowait(QUEUE_COMPLETE_SENTINEL); // Ensure queue signals end
     } finally {
       if (currentSpan) {
@@ -1167,7 +1064,7 @@ export class Runner {
       return;
     }
 
-    const guardrailTasks = guardrails.map((guardrail) =>
+    const guardrailTasks = guardrails.map(guardrail =>
       RunImpl.runSingleInputGuardrail(agent, guardrail, input, context)
     );
 
@@ -1227,9 +1124,7 @@ export class Runner {
   }
 
   /** Helper async generator to yield settled promises like asyncio.as_completed */
-  private static async *_yieldResults<T>(
-    promises: Promise<T>[]
-  ): AsyncGenerator<PromiseSettledResult<T>> {
+  private static async *_yieldResults<T>(promises: Promise<T>[]): AsyncGenerator<PromiseSettledResult<T>> {
     const promiseMap = new Map(promises.map((p, i) => [i, p]));
     const results: Map<number, PromiseSettledResult<T>> = new Map();
     let promisesPending = promiseMap.size;
@@ -1241,10 +1136,10 @@ export class Runner {
     const racers = Array.from(promiseMap.entries()).map(([index, promise]) =>
       promise
         .then(
-          (value) => ({ status: 'fulfilled' as const, value, index }),
-          (reason) => ({ status: 'rejected' as const, reason, index })
+          value => ({ status: 'fulfilled' as const, value, index }),
+          reason => ({ status: 'rejected' as const, reason, index })
         )
-        .then((result) => {
+        .then(result => {
           // Use settledIndices to avoid processing the same promise multiple times if race condition allows
           if (!settledIndices.has(index)) {
             results.set(index, result);
@@ -1283,9 +1178,7 @@ export class Runner {
     if (shouldRunAgentStartHooks) {
       await Promise.all([
         hooks.onAgentStart(contextWrapper, agent),
-        agent.hooks
-          ? agent.hooks.onStart(contextWrapper, agent)
-          : noopCoroutine(),
+        agent.hooks ? agent.hooks.onStart(contextWrapper, agent) : noopCoroutine(),
       ]);
     }
 
@@ -1297,36 +1190,26 @@ export class Runner {
     const handoffs = Runner._getHandoffs(agent);
     const model = Runner._getModel(agent, runConfig);
     const modelSettings = agent.model_settings.resolve(runConfig.modelSettings);
-    let resolvedSettings = RunImpl.maybeResetToolChoice(
-      agent,
-      toolUseTracker,
-      modelSettings
-    );
+    let resolvedSettings = RunImpl.maybeResetToolChoice(agent, toolUseTracker, modelSettings);
 
     // If tools are available and tool_choice isn't explicitly set (to e.g., 'none' or a specific tool),
     // default to 'auto' to encourage the model to use them.
     if (allTools.length > 0 && resolvedSettings.tool_choice === undefined) {
       // Use `new ModelSettings` for the resolve method
-      resolvedSettings = resolvedSettings.resolve(
-        new ModelSettings({ tool_choice: 'auto' })
-      );
-      logger.debug(
-        'Setting tool_choice to auto as tools are available in streaming.'
-      );
+      resolvedSettings = resolvedSettings.resolve(new ModelSettings({ tool_choice: 'auto' }));
+      logger.debug('Setting tool_choice to auto as tools are available in streaming.');
     }
 
     let finalResponse: ModelResponse | null = null;
 
     const currentInput = ItemHelpers.inputToNewInputList(originalInput);
-    currentInput.push(...preStepItems.map((item) => item.toInputItem())); // Use preStepItems
+    currentInput.push(...preStepItems.map(item => item.toInputItem())); // Use preStepItems
 
     // --- Stream Model Response ---
     try {
       // Ensure streamResponse exists and is callable
       if (typeof model.streamResponse !== 'function') {
-        throw new ModelBehaviorError(
-          `Model ${model.constructor.name} does not support streaming.`
-        );
+        throw new ModelBehaviorError(`Model ${model.constructor.name} does not support streaming.`);
       }
 
       const stream = model.streamResponse(
@@ -1336,10 +1219,7 @@ export class Runner {
         allTools,
         outputSchema,
         handoffs,
-        getModelTracingImpl(
-          runConfig.tracingDisabled ?? false,
-          runConfig.traceIncludeSensitiveData ?? true
-        ),
+        getModelTracingImpl(runConfig.tracingDisabled ?? false, runConfig.traceIncludeSensitiveData ?? true),
         previousResponseId
       );
 
@@ -1347,9 +1227,7 @@ export class Runner {
 
       for await (const event of stream) {
         // 1. Push raw event as-is to keep behavior unchanged
-        streamedResult._event_queue.put_nowait(
-          new RawResponsesStreamEvent(event as ModelStreamEvent)
-        );
+        streamedResult._event_queue.put_nowait(new RawResponsesStreamEvent(event as ModelStreamEvent));
 
         // 2. Accumulate text deltas
         if ((event as any)?.type === 'response.output_text.delta') {
@@ -1358,9 +1236,7 @@ export class Runner {
             partialText += delta;
 
             // Push semantic delta stream event
-            streamedResult._event_queue.put_nowait(
-              new AgentTextDeltaStreamEvent(delta)
-            );
+            streamedResult._event_queue.put_nowait(new AgentTextDeltaStreamEvent(delta));
           }
         }
 
@@ -1398,14 +1274,10 @@ export class Runner {
     // --- Process Final Response ---
     if (!finalResponse) {
       // This might happen if the stream ends without a proper completion event
-      logger.warning(
-        'Model stream ended without a detectable final response event.'
-      );
+      logger.warning('Model stream ended without a detectable final response event.');
       // Decide how to handle: throw error or try to proceed with potentially incomplete data?
       // Let's throw an error for now.
-      throw new ModelBehaviorError(
-        'Model stream ended without producing a final response event.'
-      );
+      throw new ModelBehaviorError('Model stream ended without producing a final response event.');
     }
 
     contextWrapper.usage.add(finalResponse.usage); // Add usage *after* getting final response
@@ -1426,10 +1298,7 @@ export class Runner {
     });
 
     // Stream the RunItems generated from processing the final response
-    RunImpl.streamStepResultToQueue(
-      singleStepResult,
-      streamedResult._event_queue
-    );
+    RunImpl.streamStepResultToQueue(singleStepResult, streamedResult._event_queue);
 
     return singleStepResult; // Return the fully processed result for this turn
   }
