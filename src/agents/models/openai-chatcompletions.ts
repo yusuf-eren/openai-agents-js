@@ -1,26 +1,17 @@
 import { OpenAI } from 'openai';
 import { z } from 'zod';
 import { zodResponseFormat } from 'openai/helpers/zod';
-import {
-  Model,
-  ModelProvider,
-  ModelTracing,
-  ModelTracingUtils,
-} from './interface';
+import { Model, ModelProvider, ModelTracing, ModelTracingUtils } from './interface';
 import { AgentOutputSchema } from '../agent-outputs';
 import { Handoff } from '../handoffs';
-import {
-  ModelResponse,
-  TResponseInputItem,
-  TResponseOutputItem,
-  TResponseStreamEvent,
-} from '../items';
+import { ModelResponse, TResponseInputItem, TResponseOutputItem, TResponseStreamEvent } from '../items';
 import { FunctionTool, Tool } from '../tools';
 import { ModelSettings } from './model-settings';
 import { FAKE_RESPONSES_ID } from './fake-id';
 import { DONT_LOG_MODEL_DATA } from '../debug';
 import { logger } from '../logger';
 import { generationSpan } from '../tracing';
+import { withGenerationSpan } from '../tracing/utils';
 import { GenerationSpanData } from '../tracing/span-data';
 import { Span } from '../tracing/spans';
 import { Usage } from '../usage';
@@ -67,13 +58,7 @@ export class OpenAIChatCompletionsModel implements Model {
   private model: string;
   private _client: OpenAI | null;
 
-  constructor({
-    model,
-    openaiClient,
-  }: {
-    model: string;
-    openaiClient: OpenAI;
-  }) {
+  constructor({ model, openaiClient }: { model: string; openaiClient: OpenAI }) {
     this.model = model;
     this._client = openaiClient;
   }
@@ -93,67 +78,56 @@ export class OpenAIChatCompletionsModel implements Model {
     previousResponseId?: string
   ): Promise<ModelResponse> {
     const convertedInput =
-      typeof input === 'string'
-        ? [{ role: 'user', content: input }]
-        : _Converter.itemsToMessages(input);
+      typeof input === 'string' ? [{ role: 'user', content: input }] : _Converter.itemsToMessages(input);
 
-    const span = generationSpan(
+    return withGenerationSpan(
       convertedInput,
-      null,
       this.model,
       {
         ...modelSettings,
         baseUrl: this._client?.baseURL,
       },
-      null
-    );
-
-    try {
-      const response = await this._fetchResponse(
-        systemInstructions,
-        input,
-        modelSettings,
-        tools,
-        outputSchema,
-        handoffs,
-        span,
-        tracing,
-        false
-      );
-
-      if (DONT_LOG_MODEL_DATA) {
-        logger.debug('Received model response');
-      } else {
-        logger.debug(
-          `LLM resp:\n${JSON.stringify(response.choices[0].message, null, 2)}\n`
+      async span => {
+        const response = await this._fetchResponse(
+          systemInstructions,
+          input,
+          modelSettings,
+          tools,
+          outputSchema,
+          handoffs,
+          span,
+          tracing,
+          false
         );
+
+        if (DONT_LOG_MODEL_DATA) {
+          logger.debug('Received model response');
+        } else {
+          logger.debug(`LLM resp:\n${JSON.stringify(response.choices[0].message, null, 2)}\n`);
+        }
+
+        const usage = response.usage
+          ? new Usage({
+              requests: 1,
+              input_tokens: response.usage.prompt_tokens,
+              output_tokens: response.usage.completion_tokens,
+              total_tokens: response.usage.total_tokens,
+            })
+          : new Usage();
+
+        if (ModelTracingUtils.includeData(tracing)) {
+          span.spanData.output = [response.choices[0].message];
+        }
+        span.spanData.usage = {
+          input_tokens: usage.input_tokens,
+          output_tokens: usage.output_tokens,
+        };
+
+        const items = _Converter.messageToOutputItems(response.choices[0].message);
+
+        return new ModelResponse(items, usage, null);
       }
-
-      const usage = response.usage
-        ? new Usage({
-            requests: 1,
-            input_tokens: response.usage.prompt_tokens,
-            output_tokens: response.usage.completion_tokens,
-            total_tokens: response.usage.total_tokens,
-          })
-        : new Usage();
-
-      if (ModelTracingUtils.includeData(tracing)) {
-        span.spanData.output = [response.choices[0].message];
-      }
-      span.spanData.usage = {
-        inputTokens: usage.input_tokens,
-        outputTokens: usage.output_tokens,
-      };
-
-      const items = _Converter.messageToOutputItems(
-        response.choices[0].message
-      );
-
-      return new ModelResponse(items, usage, null);
-    } finally {
-      span.finish();
-    }
+    );
   }
 
   async *streamResponse(
@@ -167,9 +141,7 @@ export class OpenAIChatCompletionsModel implements Model {
     previousResponseId?: string
   ): AsyncGenerator<TResponseStreamEvent> {
     const convertedInput =
-      typeof input === 'string'
-        ? [{ role: 'user', content: input }]
-        : _Converter.itemsToMessages(input);
+      typeof input === 'string' ? [{ role: 'user', content: input }] : _Converter.itemsToMessages(input);
 
     const span = generationSpan(
       convertedInput,
@@ -183,6 +155,8 @@ export class OpenAIChatCompletionsModel implements Model {
     );
 
     try {
+      span.start(true);
+
       const [response, stream] = await this._fetchResponse(
         systemInstructions,
         input,
@@ -195,6 +169,7 @@ export class OpenAIChatCompletionsModel implements Model {
         true
       );
 
+      let finalResponse: any = null;
       let usage: any = null;
       const state: StreamingState = {
         started: false,
@@ -399,10 +374,7 @@ export class OpenAIChatCompletionsModel implements Model {
 
       // Send final response
       const outputs: any[] = [];
-      if (
-        state.textContentIndexAndOutput ||
-        state.refusalContentIndexAndOutput
-      ) {
+      if (state.textContentIndexAndOutput || state.refusalContentIndexAndOutput) {
         const assistantMsg: ResponseOutputMessage = {
           id: FAKE_RESPONSES_ID,
           content: [],
@@ -431,7 +403,7 @@ export class OpenAIChatCompletionsModel implements Model {
         outputs.push(functionCall);
       }
 
-      const finalResponse = {
+      finalResponse = {
         ...response,
         output: outputs,
         usage: usage
@@ -440,8 +412,7 @@ export class OpenAIChatCompletionsModel implements Model {
               output_tokens: usage.completion_tokens,
               total_tokens: usage.total_tokens,
               output_tokens_details: {
-                reasoning_tokens:
-                  usage.completion_tokens_details?.reasoning_tokens || 0,
+                reasoning_tokens: usage.completion_tokens_details?.reasoning_tokens || 0,
               },
               input_tokens_details: {
                 cached_tokens: usage.prompt_tokens_details?.cached_tokens || 0,
@@ -455,18 +426,18 @@ export class OpenAIChatCompletionsModel implements Model {
         response: finalResponse,
       };
 
-      if (ModelTracingUtils.includeData(tracing)) {
+      if (ModelTracingUtils.includeData(tracing) && finalResponse) {
         span.spanData.output = [finalResponse];
       }
 
-      if (usage) {
+      if (finalResponse?.usage) {
         span.spanData.usage = {
-          inputTokens: usage.prompt_tokens,
-          outputTokens: usage.completion_tokens,
+          input_tokens: finalResponse.usage.input_tokens,
+          output_tokens: finalResponse.usage.output_tokens,
         };
       }
     } finally {
-      span.finish();
+      span.finish(true);
     }
   }
 
@@ -494,15 +465,12 @@ export class OpenAIChatCompletionsModel implements Model {
       span.spanData.input = convertedMessages;
     }
 
-    const parallelToolCalls =
-      modelSettings.parallel_tool_calls && tools.length > 0 ? true : undefined;
+    const parallelToolCalls = modelSettings.parallel_tool_calls && tools.length > 0 ? true : undefined;
 
-    const toolChoice = _Converter.convertToolChoice(
-      modelSettings.tool_choice ?? null
-    );
+    const toolChoice = _Converter.convertToolChoice(modelSettings.tool_choice ?? null);
     const responseFormat = _Converter.convertResponseFormat(outputSchema);
 
-    const convertedTools = tools.map((tool) => ToolConverter.toOpenAI(tool));
+    const convertedTools = tools.map(tool => ToolConverter.toOpenAI(tool));
 
     for (const handoff of handoffs) {
       convertedTools.push(ToolConverter.convertHandoffTool(handoff));
@@ -512,11 +480,12 @@ export class OpenAIChatCompletionsModel implements Model {
       logger.debug('Calling LLM');
     } else {
       logger.debug(
-        `${JSON.stringify(convertedMessages, null, 2)}\n` +
-          `Tools:\n${JSON.stringify(convertedTools, null, 2)}\n` +
-          `Stream: ${stream}\n` +
-          `Tool choice: ${toolChoice}\n` +
-          `Response format: ${responseFormat}\n`
+        `Messages:\n${JSON.stringify(convertedMessages, null, 2)}\n
+        Tools:\n${JSON.stringify(convertedTools, null, 2)}\n
+        Stream:\n${stream}\n
+        Tool choice:\n${toolChoice}\n
+        Response format:\n${responseFormat}\n
+        `
       );
     }
 
@@ -528,9 +497,7 @@ export class OpenAIChatCompletionsModel implements Model {
       tools: convertedTools.length > 0 ? convertedTools : undefined,
       temperature: this._nonNullOrNotGiven(modelSettings.temperature),
       top_p: this._nonNullOrNotGiven(modelSettings.top_p),
-      frequency_penalty: this._nonNullOrNotGiven(
-        modelSettings.frequency_penalty
-      ),
+      frequency_penalty: this._nonNullOrNotGiven(modelSettings.frequency_penalty),
       presence_penalty: this._nonNullOrNotGiven(modelSettings.presence_penalty),
       max_tokens: this._nonNullOrNotGiven(modelSettings.max_tokens),
       tool_choice: tools.length > 0 ? toolChoice : undefined,
@@ -563,9 +530,7 @@ export class OpenAIChatCompletionsModel implements Model {
 }
 
 class _Converter {
-  static convertToolChoice(
-    toolChoice: 'auto' | 'required' | 'none' | string | null
-  ): any {
+  static convertToolChoice(toolChoice: 'auto' | 'required' | 'none' | string | null): any {
     if (toolChoice === null) {
       return undefined;
     } else if (toolChoice === 'auto') {
@@ -584,17 +549,12 @@ class _Converter {
     }
   }
 
-  static convertResponseFormat(
-    finalOutputSchema: AgentOutputSchema | null
-  ): any {
+  static convertResponseFormat(finalOutputSchema: AgentOutputSchema | null): any {
     if (!finalOutputSchema || finalOutputSchema.isPlainText()) {
       return undefined;
     }
 
-    return zodResponseFormat(
-      z.object({ response: finalOutputSchema.outputType.outputType }),
-      'final_output'
-    );
+    return zodResponseFormat(z.object({ response: finalOutputSchema.outputType.outputType }), 'final_output');
   }
 
   static messageToOutputItems(message: any): TResponseOutputItem[] {
@@ -665,11 +625,7 @@ class _Converter {
   }
 
   static maybeInputMessage(item: any): any {
-    if (
-      typeof item === 'object' &&
-      item.type === 'message' &&
-      ['user', 'system', 'developer'].includes(item.role)
-    ) {
+    if (typeof item === 'object' && item.type === 'message' && ['user', 'system', 'developer'].includes(item.role)) {
       return item;
     }
 
@@ -705,11 +661,7 @@ class _Converter {
   }
 
   static maybeResponseOutputMessage(item: any): any {
-    if (
-      typeof item === 'object' &&
-      item.type === 'message' &&
-      item.role === 'assistant'
-    ) {
+    if (typeof item === 'object' && item.type === 'message' && item.role === 'assistant') {
       return item;
     }
     return null;
@@ -720,7 +672,7 @@ class _Converter {
     if (typeof allContent === 'string') {
       return allContent;
     }
-    return allContent.filter((c) => c.type === 'text');
+    return allContent.filter(c => c.type === 'text');
   }
 
   static extractAllContent(content: string | Iterable<any>): string | any[] {
@@ -738,9 +690,7 @@ class _Converter {
         });
       } else if (typeof c === 'object' && c.type === 'input_image') {
         if (!c.image_url) {
-          throw new UserError(
-            `Only image URLs are supported for input_image ${c}`
-          );
+          throw new UserError(`Only image URLs are supported for input_image ${c}`);
         }
         out.push({
           type: 'image_url',
@@ -750,9 +700,7 @@ class _Converter {
           },
         });
       } else if (typeof c === 'object' && c.type === 'input_file') {
-        throw new UserError(
-          `File uploads are not supported for chat completions ${c}`
-        );
+        throw new UserError(`File uploads are not supported for chat completions ${c}`);
       } else {
         throw new UserError(`Unknown content: ${c}`);
       }
@@ -784,10 +732,7 @@ class _Converter {
         if (!currentAssistantMsg.tool_calls?.length) {
           delete currentAssistantMsg.tool_calls;
         }
-        if (
-          currentAssistantMsg.content ||
-          currentAssistantMsg.tool_calls?.length
-        ) {
+        if (currentAssistantMsg.content || currentAssistantMsg.tool_calls?.length) {
           result.push(currentAssistantMsg);
         }
         currentAssistantMsg = null;
@@ -834,11 +779,7 @@ class _Converter {
             content: this.extractTextContent(content) || '',
           });
         } else if (role === 'user') {
-          logger.debug(
-            `easyMsg matched user role but content was missing: ${JSON.stringify(
-              item
-            )}`
-          );
+          logger.debug(`easyMsg matched user role but content was missing: ${JSON.stringify(item)}`);
           flushAssistantMessage();
         } else {
           throw new UserError(`Unexpected role in easy_input_message: ${role}`);
@@ -887,13 +828,9 @@ class _Converter {
           } else if (c.type === 'refusal') {
             newAsst.refusal = c.refusal;
           } else if (c.type === 'output_audio') {
-            throw new UserError(
-              `Only audio IDs are supported for chat completions, but got: ${c}`
-            );
+            throw new UserError(`Only audio IDs are supported for chat completions, but got: ${c}`);
           } else {
-            throw new UserError(
-              `Unknown content type in ResponseOutputMessage: ${c}`
-            );
+            throw new UserError(`Unknown content type in ResponseOutputMessage: ${c}`);
           }
         }
 
@@ -957,9 +894,7 @@ class _Converter {
       // 6) item reference => handle or raise
       const itemRef = this.maybeItemReference(item);
       if (itemRef) {
-        throw new UserError(
-          `Encountered an item_reference, which is not supported: ${itemRef}`
-        );
+        throw new UserError(`Encountered an item_reference, which is not supported: ${itemRef}`);
       }
 
       // 7) If we haven't recognized it => fail or ignore
