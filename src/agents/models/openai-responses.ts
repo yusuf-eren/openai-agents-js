@@ -21,6 +21,9 @@ import {
 } from 'openai/resources/responses/responses';
 import { APIPromise } from 'openai/core';
 import { MCPTool } from '../mcp/types';
+import { logger } from '../logger';
+import { withResponseSpan, SpanError, ResponseSpanData, GLOBAL_TRACE_PROVIDER } from '../tracing';
+import { DONT_LOG_MODEL_DATA } from '../debug';
 
 type ResponseAPIResponse =
   | APIPromise<Response>
@@ -66,10 +69,7 @@ export class Converter {
   static getResponseFormat(outputSchema: AgentOutputSchema | null): ResponseTextConfig | undefined {
     if (!outputSchema || outputSchema.isPlainText()) return undefined;
     return {
-      format: zodTextFormat(
-        z.object({ response: outputSchema.outputType.outputType }),
-        'final_output'
-      ),
+      format: zodTextFormat(z.object({ response: outputSchema.outputType.outputType }), 'final_output'),
     };
   }
 
@@ -206,50 +206,70 @@ export class OpenAIResponsesModel implements Model {
     tracing: ModelTracing,
     previousResponseId?: string
   ): Promise<ModelResponse> {
-    try {
-      const response = await this.fetchResponse(
-        systemInstructions,
-        input,
-        modelSettings,
-        tools,
-        outputSchema,
-        handoffs,
-        false,
-        previousResponseId
-      );
+    return withResponseSpan(
+      new ResponseSpanData(null, ModelTracingUtils.includeData(tracing) ? input : null),
+      async spanResponse => {
+        try {
+          const response = await this.fetchResponse(
+            systemInstructions,
+            input,
+            modelSettings,
+            tools,
+            outputSchema,
+            handoffs,
+            false,
+            previousResponseId
+          );
 
-      if (!('usage' in response) || !response.usage) {
-        throw new Error('Response does not contain usage information');
-      }
+          if (!('usage' in response) || !response.usage) {
+            throw new Error('Response does not contain usage information');
+          }
 
-      const usage = {
-        requests: 1,
-        input_tokens: response.usage.input_tokens,
-        output_tokens: response.usage.output_tokens,
-        total_tokens: response.usage.total_tokens,
-        add(other: any) {
-          return {
-            requests: this.requests + (other.requests || 0),
-            input_tokens: this.input_tokens + (other.input_tokens || 0),
-            output_tokens: this.output_tokens + (other.output_tokens || 0),
-            total_tokens: this.total_tokens + (other.total_tokens || 0),
-            add: this.add,
+          const usage = {
+            requests: 1,
+            input_tokens: response.usage.input_tokens,
+            output_tokens: response.usage.output_tokens,
+            total_tokens: response.usage.total_tokens,
+            add(other: any) {
+              return {
+                requests: this.requests + (other.requests || 0),
+                input_tokens: this.input_tokens + (other.input_tokens || 0),
+                output_tokens: this.output_tokens + (other.output_tokens || 0),
+                total_tokens: this.total_tokens + (other.total_tokens || 0),
+                add: this.add,
+              };
+            },
           };
-        },
-      };
 
-      const output: TResponseOutputItem[] = [];
-      const content = response.output;
+          if (ModelTracingUtils.includeData(tracing)) {
+            (spanResponse.spanData as ResponseSpanData).response = response;
+          }
 
-      if (content) {
-        output.push(ItemHelpers.inputToNewInputList(content)[0]);
+          const output: TResponseOutputItem[] = [];
+          const content = response.output;
+
+          if (content) {
+            output.push(...ItemHelpers.inputToNewInputList(content));
+          }
+
+          return new ModelResponse(output, usage, response.id);
+        } catch (error) {
+          spanResponse.setError(
+            new SpanError({
+              message: 'Error getting response',
+              data: {
+                error: ModelTracingUtils.includeData(tracing)
+                  ? String(error)
+                  : '[ERROR]:OpenAIResponsesModel.getResponse',
+              },
+            })
+          );
+          const requestId = (error as any).requestId ?? null;
+          logger.error(`Error getting response: ${error}. (request_id: ${requestId})`);
+          throw error;
+        }
       }
-
-      return new ModelResponse(output, usage, response.id);
-    } catch (error) {
-      console.error('Error getting response:', error);
-      throw error;
-    }
+    );
   }
 
   async *streamResponse(
@@ -262,23 +282,52 @@ export class OpenAIResponsesModel implements Model {
     tracing: ModelTracing,
     previousResponseId?: string
   ): AsyncIterableIterator<TResponseStreamEvent> {
-    const stream = await this.fetchResponse(
-      systemInstructions,
-      input,
-      modelSettings,
-      tools,
-      outputSchema,
-      handoffs,
-      true,
-      previousResponseId
+    const span = GLOBAL_TRACE_PROVIDER.createSpan(
+      new ResponseSpanData(null, ModelTracingUtils.includeData(tracing) ? input : null)
     );
+    span.start();
 
-    if (!(stream instanceof Stream)) {
-      throw new Error('Expected a Stream but got a non-stream response');
-    }
+    try {
+      const stream = await this.fetchResponse(
+        systemInstructions,
+        input,
+        modelSettings,
+        tools,
+        outputSchema,
+        handoffs,
+        true,
+        previousResponseId
+      );
 
-    for await (const chunk of stream) {
-      yield chunk as unknown as TResponseStreamEvent;
+      if (!(stream instanceof Stream)) {
+        throw new Error('Expected a Stream but got a non-stream response');
+      }
+
+      let finalResponse: Response | null = null;
+
+      for await (const chunk of stream) {
+        if ('response' in chunk && chunk.response) {
+          finalResponse = chunk.response;
+        }
+        yield chunk as unknown as TResponseStreamEvent;
+      }
+
+      if (finalResponse && ModelTracingUtils.includeData(tracing)) {
+        (span.spanData as ResponseSpanData).response = finalResponse;
+      }
+    } catch (error: any) {
+      span.setError(
+        new SpanError({
+          message: 'Error streaming response',
+          data: {
+            error: ModelTracingUtils.includeData(tracing) ? String(error) : error.constructor.name,
+          },
+        })
+      );
+      logger.error(`Error streaming response: ${error}`);
+      throw error;
+    } finally {
+      span.finish();
     }
   }
 
@@ -298,22 +347,37 @@ export class OpenAIResponsesModel implements Model {
     const { tools: convertedTools, includes } = Converter.convertTools(tools, handoffs);
     const responseFormat = Converter.getResponseFormat(outputSchema);
 
+    if (DONT_LOG_MODEL_DATA) {
+      logger.debug('Calling LLM');
+    } else {
+      logger.debug(
+        `Calling LLM ${this.model} with input:\n${JSON.stringify(listInput, null, 2)}\n
+        Tools:\n${JSON.stringify(convertedTools, null, 2)}\n
+        Stream: ${stream}\n
+        Tool choice: ${JSON.stringify(toolChoice)}\n
+        Response format: ${JSON.stringify(responseFormat)}\n
+        Previous response id: ${previousResponseId}\n
+        `
+      );
+    }
+
     const params: ResponseCreateParamsNonStreaming | ResponseCreateParamsStreaming = {
       model: this.model,
       input: listInput,
       include: includes,
       instructions: systemInstructions,
       metadata: modelSettings.metadata,
-      tools: [
-        // {
-        //   type: 'web_search_preview',
-        //   user_location: {
-        //     type: 'approximate',
-        //   },
-        //   search_context_size: 'medium',
-        // },
-        ...convertedTools,
-      ],
+      tools: convertedTools,
+      // [
+      // {
+      //   type: 'web_search_preview',
+      //   user_location: {
+      //     type: 'approximate',
+      //   },
+      //   search_context_size: 'medium',
+      // },
+      //   ...convertedTools,
+      // ],
       tool_choice: toolChoice,
       parallel_tool_calls: modelSettings.parallel_tool_calls ?? undefined,
       temperature: this.nonNullOrUndefined(modelSettings.temperature),

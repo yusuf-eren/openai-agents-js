@@ -177,13 +177,7 @@ export class TraceProvider {
 
     logger.debug(`Creating trace ${name} with id ${traceId}`);
 
-    return new TraceImpl(
-      name,
-      traceId,
-      groupId,
-      metadata,
-      this._multiProcessor
-    );
+    return new TraceImpl(name, traceId, groupId, metadata, this._multiProcessor);
   }
 
   /**
@@ -207,18 +201,10 @@ export class TraceProvider {
       const currentSpan = Scope.getCurrentSpan();
       const currentTrace = Scope.getCurrentTrace();
       if (currentTrace === null) {
-        logger.error(
-          'No active trace. Make sure to start a trace with `trace()` first. ' +
-            'Returning NoOpSpan.'
-        );
+        logger.error('No active trace. Make sure to start a trace with `trace()` first. ' + 'Returning NoOpSpan.');
         return new NoOpSpan(spanData);
-      } else if (
-        currentTrace instanceof NoOpTrace ||
-        currentSpan instanceof NoOpSpan
-      ) {
-        logger.debug(
-          `Parent ${currentSpan} or ${currentTrace} is no-op, returning NoOpSpan`
-        );
+      } else if (currentTrace instanceof NoOpTrace || currentSpan instanceof NoOpSpan) {
+        logger.debug(`Parent ${currentSpan} or ${currentTrace} is no-op, returning NoOpSpan`);
         return new NoOpSpan(spanData);
       }
 
@@ -243,13 +229,7 @@ export class TraceProvider {
 
     logger.debug(`Creating span ${spanData} with id ${spanId}`);
 
-    return new SpanImpl(
-      traceId,
-      spanId,
-      parentId,
-      this._multiProcessor,
-      spanData
-    );
+    return new SpanImpl(traceId, spanId, parentId, this._multiProcessor, spanData);
   }
 
   /**

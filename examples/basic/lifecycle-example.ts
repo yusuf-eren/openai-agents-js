@@ -13,7 +13,6 @@ import {
   Tool,
   Usage,
   FunctionTool,
-  WebSearchTool,
   AgentOutputSchema,
 } from '../../src/agents';
 
@@ -119,7 +118,7 @@ const multiplyAgent = new Agent({
 const startAgent = new Agent({
   name: 'Start Agent',
   instructions: "Generate a random number. If it's even, stop. If it's odd, hand off to the multiplier agent.",
-  tools: [randomNumber, new WebSearchTool({})],
+  tools: [randomNumber],
   output_type: new AgentOutputSchema(FinalResult),
   handoffs: [multiplyAgent],
 });
