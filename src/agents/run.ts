@@ -131,6 +131,23 @@ export class RunConfig {
    * An optional dictionary of additional metadata to include with the trace.
    */
   traceMetadata?: Record<string, any>;
+
+  constructor(config?: Partial<RunConfig>) {
+    if (config) {
+      this.model = config.model;
+      this.modelProvider = config.modelProvider ?? this.modelProvider;
+      this.modelSettings = config.modelSettings;
+      this.handoffInputFilter = config.handoffInputFilter;
+      this.inputGuardrails = config.inputGuardrails;
+      this.outputGuardrails = config.outputGuardrails;
+      this.tracingDisabled = config.tracingDisabled ?? this.tracingDisabled;
+      this.traceIncludeSensitiveData = config.traceIncludeSensitiveData ?? this.traceIncludeSensitiveData;
+      this.workflowName = config.workflowName ?? this.workflowName;
+      this.traceId = config.traceId;
+      this.groupId = config.groupId;
+      this.traceMetadata = config.traceMetadata;
+    }
+  }
 }
 
 /**
