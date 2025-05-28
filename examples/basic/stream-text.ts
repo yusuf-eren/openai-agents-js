@@ -9,7 +9,7 @@ async function main() {
 
   const result = await Runner.runStreamed(agent, 'Please tell me 5 jokes.');
   for await (const event of result.streamEvents()) {
-    if (event.type === 'raw_response_event' && 'delta' in event.data) {
+    if (event.type === 'raw_response_event' && event.data.type === 'response.output_text.delta') {
       process.stdout.write(event.data.delta);
     }
   }
