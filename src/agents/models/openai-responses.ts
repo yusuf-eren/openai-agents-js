@@ -19,7 +19,7 @@ import {
   ResponseTextConfig,
   Tool as OpenAITool,
 } from 'openai/resources/responses/responses';
-import { APIPromise } from 'openai/core';
+import { APIPromise } from 'openai/core/api-promise';
 import { MCPTool } from '../mcp/types';
 import { logger } from '../logger';
 import { withResponseSpan, SpanError, ResponseSpanData, GLOBAL_TRACE_PROVIDER } from '../tracing';
