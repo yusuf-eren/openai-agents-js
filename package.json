@@ -1,6 +1,6 @@
 {
   "name": "openai-agents-js",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "An unofficial Node.js library for building AI agents and multi-agent workflows with OpenAI",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
