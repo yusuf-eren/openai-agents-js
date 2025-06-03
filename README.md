@@ -1,3 +1,15 @@
+# ⚠️ This project is now deprecated
+
+Hi guys,
+
+Thanks to everyone who gave a star, created an issue, or just used it. It’s the end of the journey now.
+
+This started as a weekend project and turned into a fully open-source library. But with the official [OpenAI Agents SDK](https://github.com/openai/openai-agents-js) now released, I’ve decided to archive this repo and let the official version take the lead.
+
+Had fun building this. Thanks for being part of it.
+
+---
+
 # OpenAI Agents SDK
 
 This is a TypeScript port of the official [OpenAI Agents SDK](https://github.com/openai/openai-agents-python). This library maintains complete feature parity with the Python version, providing the exact same functionality, API design, and implementation patterns, just implemented in TypeScript/JavaScript for Node.js environments.
